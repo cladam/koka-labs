@@ -7,10 +7,10 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 ## Running
 
 ```bash
-./run.sh ls              # build and run ls (debug)
-./run.sh ls /tmp         # with arguments
-./run.sh ls -ar /tmp     # with flags
-./run.sh -O ls           # optimized build
+./exec ls              # build and run ls (debug)
+./exec ls /tmp         # with arguments
+./exec ls -ar /tmp     # with flags
+./exec -O ls           # optimized build
 ```
 
 ## Programs
