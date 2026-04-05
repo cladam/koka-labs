@@ -6,6 +6,14 @@ import std/os/dir
 import std/os/env
 
 // ---------------------------------------------------------------------------
+// Options — will grow as we add flags like -l, -R, -t, etc.
+// ---------------------------------------------------------------------------
+
+struct options
+  show-all : bool = False
+  reverse  : bool = False
+
+// ---------------------------------------------------------------------------
 // Sorting
 // Koka's standard library doesn't include a list sort, so we provide our own.
 // Simple insertion sort — fine for directory listings.
@@ -39,10 +47,11 @@ fun is-hidden(name : string) : bool
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
 
-fun list-dir(dir-path : path)
+fun list-dir(dir-path : path, opts : options)
   val entries = list-directory(dir-path)
   val names   = entries.map(fn(p) p.nodir.string)
-  val visible = names.filter(fn(n) !n.is-hidden)
+  val visible = if opts.show-all then names
+                else names.filter(fn(n) !n.is-hidden)
   val sorted  = visible.sort(cmp)
   sorted.foreach(fn(name) println(name))
 
@@ -54,8 +63,9 @@ fun list-dir(dir-path : path)
 // ---------------------------------------------------------------------------
 
 fun main()
+  val opts = Options()
   val args = get-args()
   val dir-path = match args
     Cons(a, _) -> a.path
     Nil        -> ".".path
-  list-dir(dir-path)
+  list-dir(dir-path, opts)
