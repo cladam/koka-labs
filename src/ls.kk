@@ -1,6 +1,11 @@
-// ls - list directory contents
-// Following the GNU coreutils ls philosophy, piece by piece.
-// Phase 1: Default directory listing with -a and -r flags.
+// ---------------------------------------------------------------------------
+// ls.kk — list directory contents
+//
+// A simplified clone of GNU ls, written in Koka.
+// Author: Claes Adamsson
+// License: MIT
+// ---------------------------------------------------------------------------
+module ls
 
 import std/os/path
 import std/os/dir
