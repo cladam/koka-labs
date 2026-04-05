@@ -1,24 +1,61 @@
-// list files
+// ls - list directory contents
+// Following the GNU coreutils ls philosophy, piece by piece.
+
 import std/os/path
 import std/os/dir
 import std/os/env
-import std/os/flags
 
-// The main entry point.
-// The effects <console, fsys, env> tell the compiler exactly what this program can do.
-fun main() {
-  // Get command line arguments
+// ---------------------------------------------------------------------------
+// Sorting
+// Koka's standard library doesn't include a list sort, so we provide our own.
+// Simple insertion sort — fine for directory listings.
+// ---------------------------------------------------------------------------
+
+fun insert(x : string, xs : list<string>, cmp : (string, string) -> order) : list<string>
+  match xs
+    Nil -> [x]
+    Cons(y, ys) -> match cmp(x, y)
+      Gt -> Cons(y, insert(x, ys, cmp))
+      _  -> Cons(x, xs)
+
+fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
+  match xs
+    Nil -> Nil
+    Cons(x, rest) -> insert(x, rest.sort(cmp), cmp)
+
+// ---------------------------------------------------------------------------
+// Filtering
+// GNU ls hides entries starting with '.' by default (IGNORE_DEFAULT mode).
+// ---------------------------------------------------------------------------
+
+fun is-hidden(name : string) : bool
+  match name.head-char
+    Just('.') -> True
+    _         -> False
+
+// ---------------------------------------------------------------------------
+// Listing
+// list-directory returns full paths; we display only the basename, matching
+// how GNU ls shows just the name within the listed directory.
+// ---------------------------------------------------------------------------
+
+fun list-dir(dir-path : path)
+  val entries = list-directory(dir-path)
+  val names   = entries.map(fn(p) p.nodir.string)
+  val visible = names.filter(fn(n) !n.is-hidden)
+  val sorted  = visible.sort(cmp)
+  sorted.foreach(fn(name) println(name))
+
+// ---------------------------------------------------------------------------
+// Entry point
+// No arguments  -> list current directory (".")
+// One argument   -> list that path
+// GNU ls with no args simply lists ".", no banners, no decoration.
+// ---------------------------------------------------------------------------
+
+fun main()
   val args = get-args()
-
-  // Use the first argument as path, or default to current directory "."
-  val dir-path = args.head.unjust.path
-
-  println("Listing contents of: " ++ dir-path.string)
-  println("---------------------------------------")
-
-  // list-directory returns a list of filenames
-  // we use .foreach and the dot-selection you liked!
-  list-directory(dir-path).foreach fn(name) {
-    println(name)
-  }
-}
+  val dir-path = match args
+    Cons(a, _) -> a.path
+    Nil        -> ".".path
+  list-dir(dir-path)
