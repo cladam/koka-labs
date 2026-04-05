@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+optimize=""
+
+while getopts "O" opt; do
+  case "$opt" in
+    O) optimize="-O2" ;;
+    *) ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [ $# -lt 1 ]; then
+  echo "Usage: ./run.sh [-O] <name> [args...]" >&2
+  echo "Example: ./run.sh ls /tmp" >&2
+  echo "         ./run.sh -O ls /tmp" >&2
+  exit 1
+fi
+
+name="$1"
+shift
+source="${name}.kk"
+
+if [ ! -f "$source" ]; then
+  echo "Error: ${source} not found" >&2
+  exit 1
+fi
+
+# Build and capture output; only show it on failure
+build_output=$(koka $optimize "$source" 2>&1)
+
+binary=$(echo "$build_output" | grep "^created :" | awk '{print $3}')
+
+if [ -z "$binary" ]; then
+  echo "$build_output" >&2
+  echo "Error: build failed" >&2
+  exit 1
+fi
+
+exec "./${binary}" "$@"
