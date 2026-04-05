@@ -20,7 +20,7 @@ fi
 
 name="$1"
 shift
-source="${name}.kk"
+source="src/${name}.kk"
 
 if [ ! -f "$source" ]; then
   echo "Error: ${source} not found" >&2
