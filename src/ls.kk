@@ -10,6 +10,7 @@ module ls
 import std/os/path
 import std/os/dir
 import std/os/env
+import version
 
 // Import my C code
 extern import
@@ -50,24 +51,55 @@ struct options
 
 fun classify-suffix(p : path) : fsys string
   val s = p.string
-  if is-symlink(s)    then "@"
-  elif is-directory(p) then "/"
+  if is-symlink(s)      then "@"
+  elif is-directory(p)  then "/"
   elif is-executable(s) then "*"
-  elif is-socket(s)    then "="
-  elif is-fifo(s)      then "|"
+  elif is-socket(s)     then "="
+  elif is-fifo(s)       then "|"
   else ""
+
+// ---------------------------------------------------------------------------
+// Help & version
+// ---------------------------------------------------------------------------
+
+val usage = [
+  "Usage: ls [OPTION]... [FILE]...",
+  "List information about the FILEs (the current directory by default).",
+  "",
+  "  -a             do not ignore entries starting with .",
+  "  -r             reverse order while sorting",
+  "  -F             append indicator (one of /@ *=|) to entries",
+  "      --help     show this help and exit",
+  "      --version  show version and exit"
+].join("\n")
+
+fun show-help() : io ()
+  println(usage)
+
+fun show-version() : io ()
+  println("ls " ++ ls-version ++ " - a simple directory listing program written in Koka")
+  println("Author: " ++ author)
+  println("Repository: " ++ repository)
 
 // ---------------------------------------------------------------------------
 // Argument parsing
 // GNU ls supports combined short flags like -ar, -ra, etc.
 // We separate flag arguments (starting with '-') from path arguments.
 // "--" terminates flag parsing, everything after is a path.
+// Long options --help and --version are matched before short-flag expansion.
 // ---------------------------------------------------------------------------
 
-fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : (options, list<string>)
+type parse-result
+  Parsed(opts : options, paths : list<string>)
+  HelpRequested
+  VersionRequested
+
+fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : parse-result
   match args
-    Nil -> (opts, paths.reverse)
-    Cons("--", rest) -> (opts, paths.reverse ++ rest)
+    Nil -> Parsed(opts, paths.reverse)
+    Cons("--", rest) -> Parsed(opts, paths.reverse ++ rest)
+    Cons("--help", _) -> HelpRequested
+    Cons("--version", _) -> VersionRequested
     Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
       val new-opts = arg.slice.drop(1).string.list.foldl(opts) fn(o, c)
         match c
@@ -132,9 +164,12 @@ fun list-dir(dir-path : path, opts : options)
 // ---------------------------------------------------------------------------
 
 fun main()
-  val (opts, paths) = get-args().parse-args
-  val targets       = match paths
-    Nil -> [".".path]
-    _   -> paths.map(fn(p) p.path)
-  targets.foreach fn(dir-path)
-    list-dir(dir-path, opts)
+  match get-args().parse-args
+    HelpRequested -> show-help()
+    VersionRequested -> show-version()
+    Parsed(opts, paths) ->
+      val targets = match paths
+        Nil -> [".".path]
+        _   -> paths.map(fn(p) p.path)
+      targets.foreach fn(dir-path)
+        list-dir(dir-path, opts)
