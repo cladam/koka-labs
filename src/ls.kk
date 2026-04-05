@@ -11,13 +11,51 @@ import std/os/path
 import std/os/dir
 import std/os/env
 
+// Import my C code
+extern import
+  c file "fs-inline.c"
+
+// ---------------------------------------------------------------------------
+// C FFI — file-type detection via stat/lstat (POSIX)
+// ---------------------------------------------------------------------------
+
+extern is-symlink(p : string) : fsys bool
+  c "kk_os_is_symlink"
+
+extern is-executable(p : string) : fsys bool
+  c "kk_os_is_executable"
+
+extern is-fifo(p : string) : fsys bool
+  c "kk_os_is_fifo"
+
+extern is-socket(p : string) : fsys bool
+  c "kk_os_is_socket"
+
 // ---------------------------------------------------------------------------
 // Options — will grow as we add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
 struct options
-  show-all : bool = False
-  reverse  : bool = False
+  show-all : bool = False // -a
+  reverse  : bool = False // -r
+  fs-type  : bool = False // -F
+
+// ---------------------------------------------------------------------------
+// File classification — for -F flag
+// GNU ls -F appends: / (dir), @ (symlink), * (exec), = (socket),
+// | (FIFO), % (whiteout). Symlink is checked first via lstat so that
+// a symlink to a directory shows '@' rather than '/'.
+// Whiteout is not detected (macOS-specific UFS concept, rare in practice).
+// ---------------------------------------------------------------------------
+
+fun classify-suffix(p : path) : fsys string
+  val s = p.string
+  if is-symlink(s)    then "@"
+  elif is-directory(p) then "/"
+  elif is-executable(s) then "*"
+  elif is-socket(s)    then "="
+  elif is-fifo(s)      then "|"
+  else ""
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -35,6 +73,7 @@ fun parse-args(args : list<string>, opts : options = Options(), paths : list<str
         match c
           'a' -> o(show-all = True)
           'r' -> o(reverse = True)
+          'F' -> o(fs-type = True)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -76,7 +115,9 @@ fun is-hidden(name : string) : bool
 
 fun list-dir(dir-path : path, opts : options)
   val entries = list-directory(dir-path)
-  val names   = entries.map(fn(p) p.nodir.string)
+  val names   = entries.map fn(p)
+    val name = p.nodir.string
+    if opts.fs-type then name ++ classify-suffix(p) else name
   val visible = if opts.show-all then names
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
