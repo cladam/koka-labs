@@ -77,7 +77,9 @@ fun show-help() : io ()
   println(usage)
 
 fun show-version() : io ()
-  println("ls " ++ ls-version ++ " - a simple directory listing program written in Koka")
+  val program = "ls - simple directory listing ala ls"
+  println(program-name  ++ "@" ++ version)
+  println("Program: " ++ program)
   println("Author: " ++ author)
   println("Repository: " ++ repository)
 
