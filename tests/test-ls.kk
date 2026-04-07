@@ -34,15 +34,15 @@ pub fun main() : io ()
   // Unit tests for pure logic
   defaultKUnitHandler
     // --- Options defaults ---
-    test("Options default show-all is False")
+    test("Options should not have show-all by default")
       val opts = Options()
       assert/is-false(opts.show-all)
 
-    test("Options default almost-all is False")
+    test("Options should not have almost-all by default")
       val opts = Options()
       assert/is-false(opts.almost-all)
 
-    test("Options default reverse is False")
+    test("Options should not have reverse by default")
       val opts = Options()
       assert/is-false(opts.reverse)
 
@@ -69,7 +69,7 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(aa)
 
-    test("parse-args -a overrides -A")
+    test("parse-args -a should not enable almost-all")
       val sa = match parse-args(["-A", "-a"])
         Parsed(opts, _) -> opts.show-all
         _ -> False
@@ -79,7 +79,7 @@ pub fun main() : io ()
       assert/is-true(sa)
       assert/is-false(aa)
 
-    test("parse-args -A overrides -a")
+    test("parse-args -A should not enable show-all")
       val sa = match parse-args(["-a", "-A"])
         Parsed(opts, _) -> opts.show-all
         _ -> True
@@ -125,7 +125,7 @@ pub fun main() : io ()
       assert/is-true(rev)
       assert/is-true(paths.show == ["foo", "bar"].show)
 
-    test("parse-args -- stops flag parsing")
+    test("parse-args -- should not enable flags after terminator")
       val rev = match parse-args(["--", "-r"])
         Parsed(opts, _) -> opts.reverse
         _ -> True
@@ -151,7 +151,7 @@ pub fun main() : io ()
     test("is-hidden returns True for dotfiles")
       assert/is-true(is-hidden(".git"))
 
-    test("is-hidden returns False for regular files")
+    test("is-hidden should not match regular files")
       assert/is-false(is-hidden("README.md"))
 
     // --- format-name with -F ---
@@ -167,17 +167,17 @@ pub fun main() : io ()
       val name = format-name("link", FSymlink, Options(fs-type = True))
       assert/is-true(name == "link@")
 
-    test("format-name appends nothing for regular files with -F")
+    test("format-name should not append suffix for regular files with -F")
       val name = format-name("file.txt", FRegular, Options(fs-type = True))
       assert/is-true(name == "file.txt")
 
-    test("format-name with -p appends / only for dirs")
+    test("format-name with -p should not append / for non-dirs")
       val dir-name = format-name("src", FDirectory, Options(slash-dir = True))
       val file-name = format-name("file.txt", FRegular, Options(slash-dir = True))
       assert/is-true(dir-name == "src/")
       assert/is-true(file-name == "file.txt")
 
-    test("format-name with no flags returns plain name")
+    test("format-name should not alter name without flags")
       val name = format-name("README.md", FRegular, Options())
       assert/is-true(name == "README.md")
 
