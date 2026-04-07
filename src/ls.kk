@@ -195,7 +195,9 @@ fun list-dir(dir-path : path, opts : options, show-header : bool)
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
                 else visible.sort(cmp)
-  sorted.foreach(fn(name) println(name))
+  // GNU ls is space separated by default, with no trailing newline.
+  println(sorted.join("  "))
+  // sorted.foreach(fn(name) println(name))
 
 // ---------------------------------------------------------------------------
 // Entry point
