@@ -46,7 +46,7 @@ fun eprintln(msg : string) : fsys ()
 // Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
-struct options
+pub struct options
   show-all    : bool = False // -a (includes . and ..)
   almost-all  : bool = False // -A (dotfiles, but not . and ..)
   reverse     : bool = False // -r
@@ -206,7 +206,7 @@ fun format-name(name : string, kind : file-kind, opts : options) : string
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
 
-fun list-dir(dir-path : path, opts : options, show-header : bool)
+pub fun list-dir(dir-path : path, opts : options, show-header : bool)
   if show-header then println(dir-path.string ++ ":")
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
