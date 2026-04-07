@@ -123,7 +123,7 @@ fun show-help() : io ()
   println(usage)
 
 fun show-version() : io ()
-  val program = "ls - simple directory listing ala ls"
+  val program = "koka-ls - directory listing (GNU ls clone in Koka)"
   println(program-name  ++ "@" ++ version)
   println("Program: " ++ program)
   println("Author: " ++ author)
