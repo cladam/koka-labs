@@ -13,6 +13,14 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 ./exec -O ls           # optimized build
 ```
 
+### macOS: downloaded binary
+
+macOS Gatekeeper quarantines binaries downloaded from the internet. After downloading a release, run:
+
+```bash
+xattr -d com.apple.quarantine koka-ls
+```
+
 ## Programs
 
 | Program | Description |

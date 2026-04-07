@@ -49,6 +49,10 @@ jobs:
       - name: Verify binary
         run: ./koka-ls --version
 
+      - name: Ad-hoc codesign (macOS)
+        if: runner.os == 'macOS'
+        run: codesign --sign - --force koka-ls
+
       - name: Package
         run: tar czf ${{ matrix.artifact }}.tar.gz koka-ls
 
