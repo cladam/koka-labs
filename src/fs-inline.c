@@ -57,3 +57,22 @@ static bool kk_os_is_socket(kk_string_t path, kk_context_t* ctx) {
   return ((st.st_mode & S_IFMT) == S_IFSOCK);
 }
 
+static kk_string_t kk_os_stat_error(kk_string_t path, kk_context_t* ctx) {
+  struct stat st = { 0 };
+  int err = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    if (lstat(cpath, &st) < 0) err = errno;
+  }
+  kk_string_drop(path, ctx);
+  if (err != 0) return kk_string_alloc_from_qutf8(strerror(err), ctx);
+  return kk_string_empty();
+}
+
+static kk_unit_t kk_os_eprint(kk_string_t msg, kk_context_t* ctx) {
+  kk_with_string_as_qutf8_borrow(msg, cmsg, ctx) {
+    fputs(cmsg, stderr);
+  }
+  kk_string_drop(msg, ctx);
+  return kk_Unit;
+}
+

@@ -33,6 +33,15 @@ extern is-fifo(p : string) : fsys bool
 extern is-socket(p : string) : fsys bool
   c "kk_os_is_socket"
 
+extern stat-error(p : string) : fsys string
+  c "kk_os_stat_error"
+
+extern eprint(msg : string) : fsys ()
+  c "kk_os_eprint"
+
+fun eprintln(msg : string) : fsys ()
+  eprint(msg ++ "\n")
+
 // ---------------------------------------------------------------------------
 // Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
@@ -216,7 +225,14 @@ fun main()
       val targets = match paths
         Nil -> [".".path]
         _   -> paths.map(fn(p) p.path)
-      val (dirs, files) = targets.partition(fn(t) is-directory(t))
+      // Report inaccessible paths to stderr, like GNU ls
+      val existing = targets.filter fn(t)
+        val err = stat-error(t.string)
+        if err.is-empty then True
+        else
+          eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
+          False
+      val (dirs, files) = existing.partition(fn(t) is-directory(t))
       // Print files first (no header), like GNU ls
       files.foreach fn(f)
         println(format-name(f.string, f.classify, opts))

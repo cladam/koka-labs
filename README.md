@@ -31,8 +31,8 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 - [x] Combined flags (`-ar`, `-ra`)
 - [x] `--` stops flag parsing
 - [x] Multiple path arguments — `ls dir1 dir2`
-- [ ] Distinguish files vs directories in arguments
-- [ ] Error handling (`ls: cannot access ...`)
+- [x] Distinguish files vs directories in arguments
+- [x] Error handling (`ls: cannot access ...`)
 
 ### Phase 2 — Output Formats
 - [ ] `-1` — one entry per line (currently the only mode)
