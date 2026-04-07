@@ -1,0 +1,63 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: koka-ls-linux-x86_64
+          - os: macos-latest
+            artifact: koka-ls-macos-arm64
+          - os: macos-13
+            artifact: koka-ls-macos-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Koka
+        run: |
+          curl -sSL https://github.com/koka-lang/koka/releases/latest/download/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build
+        run: |
+          koka -O2 src/ls.kk 2>&1 | tee build.log
+          BINARY=$(grep '^created :' build.log | awk '{print $3}')
+          cp "$BINARY" koka-ls
+          chmod +x koka-ls
+
+      - name: Verify binary
+        run: ./koka-ls --version
+
+      - name: Package
+        run: tar czf ${{ matrix.artifact }}.tar.gz koka-ls
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '*.tar.gz'
+          generate_release_notes: true
