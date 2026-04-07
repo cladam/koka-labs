@@ -26,6 +26,7 @@ pub extern terminal-width() : io int
 
 val min-column-width = 3  // 1 char name + 2 char separator
 val separator-width  = 2  // two spaces between columns
+val default-tabsize  = 8  // default tab stop width, matches GNU ls
 
 // ---------------------------------------------------------------------------
 // Layout result
@@ -60,7 +61,7 @@ struct hypothesis
 
 // Update a hypothesis for a single entry
 fun update-hypothesis(h : hypothesis, col : int, real-width : int) : hypothesis
-  val old-width = h.widths.at(col).default(min-column-width)
+  val old-width = h.widths.iat(col).default(min-column-width)
   if real-width > old-width then
     val new-total = h.total-width + (real-width - old-width)
     Hypothesis(
@@ -76,10 +77,10 @@ fun set(xs : list<int>, idx : int, value : int) : list<int>
     if i == idx then value else x
 
 // Get element at index in a list (0-based)
-fun at(xs : list<int>, idx : int) : maybe<int>
+fun iat(xs : list<int>, idx : int) : maybe<int>
   match xs
     Nil -> Nothing
-    Cons(x, rest) -> if idx == 0 then Just(x) else rest.at(idx - 1)
+    Cons(x, rest) -> if idx == 0 then Just(x) else rest.iat(idx - 1)
 
 fun calculate-columns(entry-widths : list<int>, line-width : int, by-columns : bool) : layout
   val n = entry-widths.length
@@ -109,7 +110,7 @@ fun calculate-columns(entry-widths : list<int>, line-width : int, by-columns : b
             filesno % k
         // Last column has no separator
         val real-width = width + (if col == k - 1 then 0 else separator-width)
-        val old-width = h.widths.at(col).default(min-column-width)
+        val old-width = h.widths.iat(col).default(min-column-width)
         if real-width > old-width then
           val new-total = h.total-width + (real-width - old-width)
           Hypothesis(
@@ -133,14 +134,29 @@ fun calculate-columns(entry-widths : list<int>, line-width : int, by-columns : b
 // Rendering
 // ---------------------------------------------------------------------------
 
+// Tab-aware indentation from position `from` to position `to`.
+// Uses tab characters when they would skip past at least one tab stop,
+// otherwise uses spaces. Matches GNU ls indent() behavior.
+fun indent(from0 : int, to : int, tabsize : int) : div string
+  var pos := from0
+  var result := ""
+  while { pos < to }
+    if tabsize > 0 && (to / tabsize) > ((pos + 1) / tabsize) then
+      result := result ++ "\t"
+      pos := pos + tabsize - (pos % tabsize)
+    else
+      result := result ++ " "
+      pos := pos + 1
+  result
+
 // Render entries in column-major order (-C, default)
 // Returns a list of lines to print
-pub fun render-column-major(entries : list<string>, line-width : int) : list<string>
+pub fun render-column-major(entries : list<string>, line-width : int, tabsize : int = default-tabsize) : div list<string>
   val n = entries.length
   if n == 0 then return []
 
-  val widths = entries.map(fn(e) e.count)
-  val lay = calculate-columns(widths, line-width, by-columns = True)
+  val entry-widths = entries.map(fn(e) e.count)
+  val lay = calculate-columns(entry-widths, line-width, by-columns = True)
   val cols = lay.cols
   val rows = cdiv(n, cols)
 
@@ -148,49 +164,61 @@ pub fun render-column-major(entries : list<string>, line-width : int) : list<str
   val arr = entries.vector
 
   list(0, rows - 1).map fn(row)
+    var pos := 0
     val parts = list(0, cols - 1).filter-map fn(col)
       val filesno = col * rows + row
       if filesno >= n then Nothing
       else
         val entry = arr.at(filesno).default("")
-        val col-width = lay.col-widths.at(col).default(0)
+        val name-width = entry.count
+        val col-width = lay.col-widths.iat(col).default(0)
         // Last column (or last entry in row) doesn't need padding
-        if col == cols - 1 || col * rows + row + rows >= n then Just(entry)
-        else Just(entry.pad-right(col-width))
+        if col == cols - 1 || col * rows + row + rows >= n then
+          Just(entry)
+        else
+          val gap = indent(pos + name-width, pos + col-width, tabsize)
+          pos := pos + col-width
+          Just(entry ++ gap)
     parts.join("")
 
 // Render entries in row-major order (-x)
 // Returns a list of lines to print
-pub fun render-row-major(entries : list<string>, line-width : int) : list<string>
+pub fun render-row-major(entries : list<string>, line-width : int, tabsize : int = default-tabsize) : div list<string>
   val n = entries.length
   if n == 0 then return []
 
-  val widths = entries.map(fn(e) e.count)
-  val lay = calculate-columns(widths, line-width, by-columns = False)
+  val entry-widths = entries.map(fn(e) e.count)
+  val lay = calculate-columns(entry-widths, line-width, by-columns = False)
   val cols = lay.cols
 
   val arr = entries.vector
 
-  list(0, n - 1).foldl(([], [])) fn((lines, current-line), filesno)
+  list(0, n - 1).foldl(([], [], 0)) fn((lines, current-line, pos), filesno)
     val col = filesno % cols
     val entry = arr.at(filesno).default("")
-    val col-width = lay.col-widths.at(col).default(0)
-    val padded = if col == cols - 1 || filesno == n - 1 then entry
-                 else entry.pad-right(col-width)
+    val name-width = entry.count
+    val col-width = lay.col-widths.iat(col).default(0)
     if col == 0 && filesno > 0 then
-      (Cons(current-line.reverse.join(""), lines), [padded])
+      // New row
+      val padded = if col == cols - 1 || filesno == n - 1 then entry
+                   else entry ++ indent(name-width, col-width, tabsize)
+      val new-pos = col-width
+      (Cons(current-line.reverse.join(""), lines), [padded], new-pos)
     else
-      (lines, Cons(padded, current-line))
-  .fst-with-last
+      val padded = if col == cols - 1 || filesno == n - 1 then entry
+                   else entry ++ indent(pos + name-width, pos + col-width, tabsize)
+      val new-pos = pos + col-width
+      (lines, Cons(padded, current-line), new-pos)
+  .fst-with-last2
 
 // Helper to flush the last line
-fun fst-with-last(pair : (list<string>, list<string>)) : list<string>
-  val (lines, current) = pair
+fun fst-with-last2(triple : (list<string>, list<string>, int)) : list<string>
+  val (lines, current, _) = triple
   val last-line = current.reverse.join("")
   Cons(last-line, lines).reverse
 
 // Safe vector access
-fun vector-at(v : vector<string>, idx : int) : exn maybe<string>
+fun vat(v : vector<string>, idx : int) : exn maybe<string>
   if idx >= 0 && idx < v.length then Just(v[idx])
   else Nothing
 
