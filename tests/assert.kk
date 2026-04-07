@@ -183,6 +183,8 @@ pub fun defaultKUnitHandler(action: () -> kunit ()) : io ()
   var passed := 0
   var failed := 0
   var skipped := 0
+  var test-failed := False
+  var fail-details := ""
 
   with handler
     fun scenario(inputs, show)
@@ -190,24 +192,30 @@ pub fun defaultKUnitHandler(action: () -> kunit ()) : io ()
 
   with handler
     fun pass()
-      passed := passed + 1
-      println(green("  \u2713 ") ++ modulename ++ " \"" ++ testname ++ "\"" ++ (if inputsShow == "" then "" else " (" ++ inputsShow ++ ")"))
+      ()
     fun fail(assertion-function-name, koka-file-line, expected, actually)
-      failed := failed + 1
-      println(red("  \u2717 ") ++ modulename ++ " \"" ++ testname ++ "\"" ++ (if inputsShow == "" then "" else " (" ++ inputsShow ++ ")"))
-      println("    " ++ assertion-function-name ++ " at " ++ koka-file-line)
-      println("      expected: " ++ expected)
-      println("      actually: " ++ actually)
+      test-failed := True
+      fail-details := fail-details ++ "    " ++ assertion-function-name ++ " at " ++ koka-file-line ++ "\n      expected: " ++ expected ++ "\n      actually: " ++ actually ++ "\n"
     fun fatal(message)
-      failed := failed + 1
-      println(red("  ! ") ++ "fatal: " ++ message)
+      test-failed := True
+      fail-details := fail-details ++ "    fatal: " ++ message ++ "\n"
 
   with handler
     fun test(test-name, body, module-name)
       modulename := module-name
       testname := test-name
       inputsShow := ""
+      test-failed := False
+      fail-details := ""
       body()
+      val suffix = if inputsShow == "" then "" else " (" ++ inputsShow ++ ")"
+      if test-failed then
+        failed := failed + 1
+        println(red("  \u2717 ") ++ modulename ++ " \"" ++ testname ++ "\"" ++ suffix)
+        print(fail-details)
+      else
+        passed := passed + 1
+        println(green("  \u2713 ") ++ modulename ++ " \"" ++ testname ++ "\"" ++ suffix)
     fun skip(test-name, body, module-name)
       skipped := skipped + 1
       println(yellow("  - ") ++ module-name ++ " \"" ++ test-name ++ "\" (skipped)")
