@@ -64,7 +64,7 @@ pub struct options
 // ---------------------------------------------------------------------------
 
 // Create a type for pattern matching
-type file-kind
+pub type file-kind
   FDirectory
   FRegular
   FSymlink
@@ -137,12 +137,12 @@ fun show-version() : io ()
 // Long options --help and --version are matched before short-flag expansion.
 // ---------------------------------------------------------------------------
 
-type parse-result
+pub type parse-result
   Parsed(opts : options, paths : list<string>)
   HelpRequested
   VersionRequested
 
-fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : parse-result
+pub fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : parse-result
   match args
     Nil -> Parsed(opts, paths.reverse)
     Cons("--", rest) -> Parsed(opts, paths.reverse ++ rest)
@@ -186,13 +186,13 @@ fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
 // With -a, all entries are shown.
 // ---------------------------------------------------------------------------
 
-fun is-hidden(name : string) : bool
+pub fun is-hidden(name : string) : bool
   match name.head-char
     Just('.') -> True
     _         -> False
 
 // Format a single entry name with optional -F / -p suffix
-fun format-name(name : string, kind : file-kind, opts : options) : string
+pub fun format-name(name : string, kind : file-kind, opts : options) : string
   if opts.fs-type then name ++ kind.suffix
   elif opts.slash-dir then match kind
     FDirectory -> name ++ "/"
@@ -206,8 +206,7 @@ fun format-name(name : string, kind : file-kind, opts : options) : string
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
 
-pub fun list-dir(dir-path : path, opts : options, show-header : bool)
-  if show-header then println(dir-path.string ++ ":")
+pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string>
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
     format-name(p.nodir.string, p.classify, opts)
@@ -220,8 +219,12 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool)
                   Cons(dot, Cons(dotdot, names))
                 elif opts.almost-all then names
                 else names.filter(fn(n) !n.is-hidden)
-  val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
-                else visible.sort(cmp)
+  if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
+  else visible.sort(cmp)
+
+pub fun list-dir(dir-path : path, opts : options, show-header : bool)
+  if show-header then println(dir-path.string ++ ":")
+  val sorted = list-dir-names(dir-path, opts)
   // Render output: one-per-line (-1) or columns (default)
   if opts.one-entry then
     sorted.foreach(fn(name) println(name))

@@ -2,7 +2,7 @@
 // assert.kk — lightweight xUnit-style test framework for Koka
 // ---------------------------------------------------------------------------
 
-extern process-exit(code : int) : io ()
+pub extern process-exit(code : int) : io ()
   c inline "exit(kk_integer_clamp32(#1,kk_context()))"
 
 // ---------------------------------------------------------------------------
@@ -15,10 +15,10 @@ val ansi-red    = "\x1B[31m"
 val ansi-yellow = "\x1B[33m"
 val ansi-bold   = "\x1B[1m"
 
-fun green(s : string)  : string
+pub fun green(s : string)  : string
   ansi-green  ++ s ++ ansi-reset
 
-fun red(s : string)    : string
+pub fun red(s : string)    : string
   ansi-red    ++ s ++ ansi-reset
 
 fun yellow(s : string) : string
@@ -88,6 +88,68 @@ pub fun assert/is-false(actual:bool, ?kk-file-line:string) : <pure,kassertion> (
         actually = "True")
 
 // ---------------------------------------------------------------------------
+// Collection assertions
+// ---------------------------------------------------------------------------
+
+pub fun assert/contains(collection:list<a>, expected:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if collection.any(fn(item) eq(item, expected))
+    then pass()
+    else fail(
+        assertion-function-name = "assert/contains",
+        koka-file-line = kk-file-line,
+        expected = "collection to contain " ++ expected.show,
+        actually = collection.map(show).join(", "))
+
+pub fun assert/not-contains(collection:list<a>, expected:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if !collection.any(fn(item) eq(item, expected))
+    then pass()
+    else fail(
+        assertion-function-name = "assert/not-contains",
+        koka-file-line = kk-file-line,
+        expected = "collection to not contain " ++ expected.show,
+        actually = collection.map(show).join(", "))
+
+pub fun assert/empty(collection:list<a>, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  match collection
+    Nil -> pass()
+    _   -> fail(
+        assertion-function-name = "assert/empty",
+        koka-file-line = kk-file-line,
+        expected = "empty collection",
+        actually = collection.map(show).join(", "))
+
+pub fun assert/not-empty(collection:list<a>, ?kk-file-line:string) : <pure,kassertion> ()
+  match collection
+    Nil -> fail(
+        assertion-function-name = "assert/not-empty",
+        koka-file-line = kk-file-line,
+        expected = "non-empty collection",
+        actually = "[]")
+    _   -> pass()
+
+// ---------------------------------------------------------------------------
+// Numeric assertions
+// ---------------------------------------------------------------------------
+
+pub fun assert/in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> pure order, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if cmp(actual, low) != Lt && cmp(actual, high) != Gt
+    then pass()
+    else fail(
+        assertion-function-name = "assert/in-range",
+        koka-file-line = kk-file-line,
+        expected = show(low) ++ " .. " ++ show(high),
+        actually = actual.show)
+
+pub fun assert/not-in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> pure order, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if cmp(actual, low) == Lt || cmp(actual, high) == Gt
+    then pass()
+    else fail(
+        assertion-function-name = "assert/not-in-range",
+        koka-file-line = kk-file-line,
+        expected = "not in " ++ show(low) ++ " .. " ++ show(high),
+        actually = actual.show)
+
+// ---------------------------------------------------------------------------
 // Scenarios
 // ---------------------------------------------------------------------------
 
@@ -96,6 +158,19 @@ pub fun scenarios(inputs: () -> list<a>, body: a -> <pure,kassertion> (), ?show:
     scenario(i)
     body(i)
   )
+
+// ---------------------------------------------------------------------------
+// Standalone IO assertions (for tests that need side effects)
+// ---------------------------------------------------------------------------
+
+pub fun assert-contains(entries : list<string>, name : string, msg : string) : io ()
+  if entries.any(fn(e) e == name) then
+    println(green("  \u2713 ") ++ msg)
+  else
+    println(red("  \u2717 ") ++ msg)
+    println("      expected to find: " ++ name)
+    println("      entries: " ++ entries.show)
+    process-exit(1)
 
 // ---------------------------------------------------------------------------
 // Default handler — tracks counts and exits non-zero on failure
