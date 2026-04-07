@@ -11,6 +11,7 @@ import std/os/path
 import std/os/dir
 import std/os/env
 import version
+import columns
 
 // Import my C code
 extern import
@@ -195,9 +196,10 @@ fun list-dir(dir-path : path, opts : options, show-header : bool)
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
                 else visible.sort(cmp)
-  // GNU ls is space separated by default, with no trailing newline.
-  println(sorted.join("  "))
-  // sorted.foreach(fn(name) println(name))
+  // Render in columns like GNU ls (column-major)
+  val width = terminal-width()
+  val lines = render-column-major(sorted, width)
+  lines.foreach(fn(line) println(line))
 
 // ---------------------------------------------------------------------------
 // Entry point
