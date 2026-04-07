@@ -47,10 +47,13 @@ fun eprintln(msg : string) : fsys ()
 // ---------------------------------------------------------------------------
 
 struct options
-  show-all : bool = False // -a
-  reverse  : bool = False // -r
-  fs-type  : bool = False // -F
-  slash-dir: bool = False // -p
+  show-all    : bool = False // -a (includes . and ..)
+  almost-all  : bool = False // -A (dotfiles, but not . and ..)
+  reverse     : bool = False // -r
+  fs-type   : bool = False // -F
+  slash-dir : bool = False // -p
+  one-entry : bool = False // -1
+  force-columns : bool = False // -C
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
@@ -105,10 +108,13 @@ val usage = [
   "Usage: ls [OPTION]... [FILE]...",
   "List information about the FILEs (the current directory by default).",
   "",
-  "  -a             do not ignore entries starting with .",
+  "  -a             do not ignore entries starting with . (includes . and ..)",
+  "  -A             like -a, but do not list . and ..",
   "  -r             reverse order while sorting",
   "  -F             append indicator (one of /@ *=|) to entries",
   "  -p             append / indicator to directories",
+  "  -1             list one file per line",
+  "  -C             list entries by columns",
   "      --help     show this help and exit",
   "      --version  show version and exit"
 ].join("\n")
@@ -145,10 +151,13 @@ fun parse-args(args : list<string>, opts : options = Options(), paths : list<str
     Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
       val new-opts = arg.slice.drop(1).string.list.foldl(opts) fn(o, c)
         match c
-          'a' -> o(show-all = True)
+          'a' -> o(show-all = True, almost-all = False)
+          'A' -> o(almost-all = True, show-all = False)
           'r' -> o(reverse = True)
           'F' -> o(fs-type = True)
           'p' -> o(slash-dir = True)
+          '1' -> o(one-entry = True, force-columns = False)
+          'C' -> o(force-columns = True, one-entry = False)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -188,6 +197,7 @@ fun format-name(name : string, kind : file-kind, opts : options) : string
   elif opts.slash-dir then match kind
     FDirectory -> name ++ "/"
     _          -> name
+  // Swallow -C for columns as it is default, but -1 overrides it, so we don't need to check that here
   else name
 
 // ---------------------------------------------------------------------------
@@ -201,14 +211,24 @@ fun list-dir(dir-path : path, opts : options, show-header : bool)
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
     format-name(p.nodir.string, p.classify, opts)
-  val visible = if opts.show-all then names
+  // -a: show everything including . and ..
+  // -A: show dotfiles but exclude . and ..
+  // default: hide all dotfiles
+  val visible = if opts.show-all then
+                  val dot    = format-name(".",  FDirectory, opts)
+                  val dotdot = format-name("..", FDirectory, opts)
+                  Cons(dot, Cons(dotdot, names))
+                elif opts.almost-all then names
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
                 else visible.sort(cmp)
-  // Render in columns like GNU ls (column-major)
-  val width = terminal-width()
-  val lines = render-column-major(sorted, width)
-  lines.foreach(fn(line) println(line))
+  // Render output: one-per-line (-1) or columns (default)
+  if opts.one-entry then
+    sorted.foreach(fn(name) println(name))
+  else
+    val width = terminal-width()
+    val lines = render-column-major(sorted, width)
+    lines.foreach(fn(line) println(line))
 
 // ---------------------------------------------------------------------------
 // Entry point
