@@ -49,7 +49,7 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 - [ ] `-B` — ignore backups (`*~`)
 
 ### Phase 4 — Indicators & Recursion
-- [ ] `-F` — append file type indicator (`/`, `*`, `@`, etc.)
+- [x] `-F` — append file type indicator (`/`, `*`, `@`, etc.)
 - [ ] `-p` — append `/` to directories
 - [ ] `-R` — recursive listing
 - [ ] `-d` — list directory itself, don't descend

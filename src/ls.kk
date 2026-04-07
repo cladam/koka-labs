@@ -33,7 +33,7 @@ extern is-socket(p : string) : fsys bool
   c "kk_os_is_socket"
 
 // ---------------------------------------------------------------------------
-// Options — will grow as we add flags like -l, -R, -t, etc.
+// Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
 struct options
@@ -49,6 +49,34 @@ struct options
 // Whiteout is not detected (macOS-specific UFS concept, rare in practice).
 // ---------------------------------------------------------------------------
 
+// Create a type for pattern matching
+type file-kind
+  FDirectory
+  FRegular
+  FSymlink
+  FExecutable
+  FSocket
+  FFifo
+
+fun classify(p : path) : fsys file-kind
+  val s = p.string
+  if is-symlink(s)      then FSymlink
+  elif is-directory(p)  then FDirectory
+  elif is-executable(s) then FExecutable
+  elif is-socket(s)     then FSocket
+  elif is-fifo(s)       then FFifo
+  else FRegular
+
+fun suffix(kind : file-kind) : string
+  match kind
+    FDirectory  -> "/"
+    FSymlink    -> "@"
+    FExecutable -> "*"
+    FSocket     -> "="
+    FFifo       -> "|"
+    FRegular    -> ""
+
+// Alternatively, combine classify and suffix into one function, not so elegant
 fun classify-suffix(p : path) : fsys string
   val s = p.string
   if is-symlink(s)      then "@"
@@ -151,7 +179,8 @@ fun list-dir(dir-path : path, opts : options)
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
     val name = p.nodir.string
-    if opts.fs-type then name ++ classify-suffix(p) else name
+    if opts.fs-type then name ++ p.classify.suffix else name
+    // if opts.fs-type then name ++ classify-suffix(p) else name
   val visible = if opts.show-all then names
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
