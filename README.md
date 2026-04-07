@@ -57,6 +57,11 @@ xattr -d com.apple.quarantine koka-ls
 
 ## ls — Progress
 
+### Phase 0 - Infrastructure
+
+- [x] Create a testing framework based on XUnit
+- [x] Create a CI workflow and publish binaries
+
 ### Phase 1 — Foundation
 - [x] Default directory listing (`.` when no args)
 - [x] Hide dotfiles by default
@@ -70,6 +75,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] Exit codes (0 success, 1 minor problems, 2 serious trouble)
 
 ### Phase 2 — Which files are listed
+
 [GNU §10.1.1](https://www.gnu.org/software/coreutils/manual/html_node/Which-files-are-listed.html)
 - [x] `-a, --all` — in directories, do not ignore names starting with `.`
 - [x] `-A, --almost-all` — like `-a`, but ignore `.` and `..`
@@ -83,6 +89,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `-R, --recursive` — list subdirectories recursively
 
 ### Phase 3 — What information is listed
+
 [GNU §10.1.2](https://www.gnu.org/software/coreutils/manual/html_node/What-information-is-listed.html) ·
 [GNU §10.1.5](https://www.gnu.org/software/coreutils/manual/html_node/Formatting-file-timestamps.html)
 - [ ] `-l, --format=long` — long format (type, mode, links, owner, group, size, timestamp, name)
@@ -102,6 +109,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `-D, --dired` — generate output for Emacs dired mode
 
 ### Phase 4 — Sorting the output
+
 [GNU §10.1.3](https://www.gnu.org/software/coreutils/manual/html_node/Sorting-the-output.html)
 - [x] `-r, --reverse` — reverse whatever the sorting method is
 - [ ] `-S, --sort=size` — sort by file size, largest first
@@ -118,6 +126,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `--group-directories-first` — group directories before files
 
 ### Phase 5 — General output formatting
+
 [GNU §10.1.4](https://www.gnu.org/software/coreutils/manual/html_node/General-output-formatting.html)
 - [x] `-1` — one file per line
 - [x] `-C, --format=vertical` — list in columns, sorted vertically (default for terminal)
@@ -136,6 +145,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `--zero` — end each line with NUL, not newline (implies `-1`, `--color=none`, `-N`)
 
 ### Phase 6 — Formatting the file names
+
 [GNU §10.1.6](https://www.gnu.org/software/coreutils/manual/html_node/Formatting-the-file-names.html)
 - [ ] `-b, --escape` — C-style backslash escapes for nongraphic characters
 - [ ] `-N, --literal` — print entry names without quoting
