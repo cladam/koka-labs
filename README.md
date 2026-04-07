@@ -24,81 +24,86 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 ### Phase 1 — Foundation
 - [x] Default directory listing (`.` when no args)
 - [x] Hide dotfiles by default
-- [x] Alphabetical sort
+- [x] Alphabetical sort (default)
 - [x] Show basenames, not full paths
-- [x] `-a` — show all entries including `.` and `..`
-- [x] `-A` — like `-a`, but exclude `.` and `..`
-- [x] `-r` — reverse sort order
-- [x] Combined flags (`-ar`, `-ra`)
+- [x] Combined short flags (`-ar`, `-ra`)
 - [x] `--` stops flag parsing
 - [x] Multiple path arguments — `ls dir1 dir2`
 - [x] Distinguish files vs directories in arguments
 - [x] Error handling (`ls: cannot access ...`)
+- [ ] Exit codes (0 success, 1 minor problems, 2 serious trouble)
 
-### Phase 2 — Output Formats
-- [x] `-1` — one entry per line
-- [ ] `-l` — long format (permissions, owner, group, size, date, name)
-- [x] `-C` — multi-column (default when stdout is a terminal)
-- [ ] `-m` — comma-separated list
-- [ ] `-x` — list entries by lines instead of by columns
-- [ ] `--format=WORD` — select format (across, commas, long, single-column, verbose, vertical)
-
-### Phase 3 — Sorting & Filtering
-- [ ] `-t` — sort by modification time
-- [ ] `-S` — sort by size
-- [ ] `-U` — unsorted (directory order)
-- [ ] `-v` — natural sort of version numbers within text
-- [ ] `-X` — sort alphabetically by entry extension
-- [ ] `--sort=WORD` — select sort (none, size, time, version, extension, name, width)
-- [ ] `-B` — ignore backups (`*~`)
-- [ ] `-I PATTERN` — ignore glob pattern
+### Phase 2 — Which files are listed
+[GNU §10.1.1](https://www.gnu.org/software/coreutils/manual/html_node/Which-files-are-listed.html)
+- [x] `-a, --all` — in directories, do not ignore names starting with `.`
+- [x] `-A, --almost-all` — like `-a`, but ignore `.` and `..`
+- [ ] `-B, --ignore-backups` — ignore entries ending with `~`
+- [ ] `-d, --directory` — list directories themselves, not their contents
+- [ ] `-H, --dereference-command-line` — follow symlinks listed on the command line
+- [ ] `--dereference-command-line-symlink-to-dir` — follow command-line symlinks that point to directories
 - [ ] `--hide=PATTERN` — hide matching entries (overridden by `-a`/`-A`)
-- [ ] `-f` — do not sort, enable `-aU`
+- [ ] `-I, --ignore=PATTERN` — do not list entries matching pattern
+- [ ] `-L, --dereference` — show information for link target, not the link itself
+- [ ] `-R, --recursive` — list subdirectories recursively
 
-### Phase 4 — Indicators, Recursion & Directories
-- [x] `-F` — append file type indicator (`/`, `*`, `@`, etc.)
-- [x] `-p` — append `/` to directories
-- [ ] `--file-type` — like `-F`, but do not append `*`
-- [ ] `--indicator-style=WORD` — none, slash, file-type, classify
-- [ ] `-R` — recursive listing
-- [ ] `-d` — list directories themselves, not their contents
-- [ ] `--group-directories-first` — group directories before files
-
-### Phase 5 — Long Format Enhancements
-- [ ] `-g` — like `-l`, but omit owner
-- [ ] `-o` — like `-l`, but omit group information
+### Phase 3 — What information is listed
+[GNU §10.1.2](https://www.gnu.org/software/coreutils/manual/html_node/What-information-is-listed.html) ·
+[GNU §10.1.5](https://www.gnu.org/software/coreutils/manual/html_node/Formatting-file-timestamps.html)
+- [ ] `-l, --format=long` — long format (type, mode, links, owner, group, size, timestamp, name)
+- [ ] `-g` — long format, omit owner
+- [ ] `-o` — long format, omit group (equivalent to `-l -G`)
 - [ ] `-G, --no-group` — suppress group in long listing
-- [ ] `-n, --numeric-uid-gid` — numeric user and group IDs
-- [ ] `--author` — print author of each file with `-l`
-- [ ] `-i, --inode` — print index number of each file
+- [ ] `-n, --numeric-uid-gid` — long format with numeric user and group IDs
+- [ ] `--author` — with `-l`, print author of each file
+- [ ] `-i, --inode` — print inode number of each file
 - [ ] `-s, --size` — print allocated size of each file in blocks
-- [ ] `-k, --kibibytes` — default to 1024-byte blocks for `-s`
-- [ ] `-h, --human-readable` — sizes like 1K 234M 2G
+- [ ] `-h, --human-readable` — print sizes like 1K 234M 2G (powers of 1024)
 - [ ] `--si` — like `-h`, but use powers of 1000
-- [ ] `--block-size=SIZE` — scale sizes when printing
-
-### Phase 6 — Time Options
-- [ ] `-c` — show/sort by ctime (status change time)
-- [ ] `-u` — show/sort by access time
-- [ ] `--time=WORD` — select timestamp (atime, ctime, mtime, birth)
-- [ ] `--time-style=TIME_STYLE` — time/date format with `-l`
-- [ ] `--full-time` — like `-l --time-style=full-iso`
-
-### Phase 7 — Symlinks, Quoting & Color
-- [ ] `-H` — dereference symlinks on command line
-- [ ] `-L` — dereference all symlinks
-- [ ] `--color[=WHEN]` — colorized output
-- [ ] `--hyperlink[=WHEN]` — hyperlink file names
-- [ ] `-N, --literal` — print entry names without quoting
-- [ ] `-Q, --quote-name` — enclose entry names in double quotes
-- [ ] `-b, --escape` — C-style escapes for nongraphic characters
-- [ ] `--quoting-style=WORD` — select quoting style
-- [ ] `-q, --hide-control-chars` — print `?` instead of nongraphic characters
-
-### Phase 8 — Remaining & Polish
-- [ ] `-w, --width=COLS` — set output width (0 = no limit)
-- [ ] `-T, --tabsize=COLS` — assume tab stops at each COLS instead of 8
-- [ ] `--zero` — end each output line with NUL, not newline
+- [ ] `--block-size=SIZE` — scale sizes by SIZE when printing
+- [ ] `--full-time` — long format with `--time-style=full-iso`
+- [ ] `--time-style=STYLE` — time/date format with `-l` (full-iso, long-iso, iso, locale, +FORMAT)
 - [ ] `-Z, --context` — print security context of each file
 - [ ] `-D, --dired` — generate output for Emacs dired mode
-- [ ] Exit codes matching GNU conventions (0, 1, 2)
+
+### Phase 4 — Sorting the output
+[GNU §10.1.3](https://www.gnu.org/software/coreutils/manual/html_node/Sorting-the-output.html)
+- [x] `-r, --reverse` — reverse whatever the sorting method is
+- [ ] `-S, --sort=size` — sort by file size, largest first
+- [ ] `-t, --sort=time` — sort by modification time, newest first
+- [ ] `-U, --sort=none` — do not sort; list entries in directory order
+- [ ] `-v, --sort=version` — natural sort of version numbers within text
+- [ ] `-X, --sort=extension` — sort alphabetically by file extension
+- [ ] `--sort=name` — sort by name (default; explicit override)
+- [ ] `--sort=width` — sort by printed width of file name
+- [ ] `-c, --time=ctime` — use/sort by status change time
+- [ ] `-u, --time=atime` — use/sort by access time
+- [ ] `--time=WORD` — select timestamp (atime, ctime, mtime, birth)
+- [ ] `-f` — do not sort; enable `-a` and `-U`
+- [ ] `--group-directories-first` — group directories before files
+
+### Phase 5 — General output formatting
+[GNU §10.1.4](https://www.gnu.org/software/coreutils/manual/html_node/General-output-formatting.html)
+- [x] `-1` — one file per line
+- [x] `-C, --format=vertical` — list in columns, sorted vertically (default for terminal)
+- [x] `-F, --classify` — append indicator (`/` dir, `*` exec, `@` symlink, `=` socket, `|` FIFO, `>` door)
+- [x] `-p, --indicator-style=slash` — append `/` to directories
+- [ ] `-m, --format=commas` — comma-separated list, filling width
+- [ ] `-x, --format=across` — like `-C`, but sorted across rather than down columns
+- [ ] `--format=WORD` — select format (across, commas, long, single-column, verbose, vertical)
+- [ ] `--file-type, --indicator-style=file-type` — like `-F`, but do not append `*`
+- [ ] `--indicator-style=WORD` — none, slash, file-type, classify
+- [ ] `-k, --kibibytes` — default to 1024-byte blocks for `-s` and per-directory totals
+- [ ] `--color[=WHEN]` — colorize output (none, auto, always)
+- [ ] `--hyperlink[=WHEN]` — hyperlink file names (none, auto, always)
+- [ ] `-T, --tabsize=COLS` — assume tab stops at each COLS instead of 8
+- [ ] `-w, --width=COLS` — set output width (0 = no limit)
+- [ ] `--zero` — end each line with NUL, not newline (implies `-1`, `--color=none`, `-N`)
+
+### Phase 6 — Formatting the file names
+[GNU §10.1.6](https://www.gnu.org/software/coreutils/manual/html_node/Formatting-the-file-names.html)
+- [ ] `-b, --escape` — C-style backslash escapes for nongraphic characters
+- [ ] `-N, --literal` — print entry names without quoting
+- [ ] `-q, --hide-control-chars` — print `?` instead of nongraphic characters
+- [ ] `-Q, --quote-name` — enclose entry names in double quotes
+- [ ] `--quoting-style=WORD` — literal, shell, shell-always, shell-escape, shell-escape-always, c, escape, clocale, locale
+- [ ] `--show-control-chars` — print nongraphic characters as-is (default for non-terminal)
