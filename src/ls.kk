@@ -179,6 +179,8 @@ fun is-hidden(name : string) : bool
 // ---------------------------------------------------------------------------
 
 fun list-dir(dir-path : path, opts : options)
+//fun list-dir(dir-path : path, opts : options, show-header : bool)
+//  if show-header then println(dir-path.string ++ ":")
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
     val name = p.nodir.string
@@ -211,3 +213,7 @@ fun main()
         _   -> paths.map(fn(p) p.path)
       targets.foreach fn(dir-path)
         list-dir(dir-path, opts)
+//      val show-header = targets.length > 1
+//      targets.foreach-indexed fn(i, dir-path)
+//        if i > 0 then println("")
+//        list-dir(dir-path, opts, show-header)
