@@ -172,6 +172,14 @@ fun is-hidden(name : string) : bool
     Just('.') -> True
     _         -> False
 
+// Format a single entry name with optional -F / -p suffix
+fun format-name(name : string, kind : file-kind, opts : options) : string
+  if opts.fs-type then name ++ kind.suffix
+  elif opts.slash-dir then match kind
+    FDirectory -> name ++ "/"
+    _          -> name
+  else name
+
 // ---------------------------------------------------------------------------
 // Listing
 // list-directory returns full paths; we display only the basename, matching
@@ -182,13 +190,7 @@ fun list-dir(dir-path : path, opts : options, show-header : bool)
   if show-header then println(dir-path.string ++ ":")
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
-    val name = p.nodir.string
-    val kind = p.classify
-    if opts.fs-type then name ++ kind.suffix
-    elif opts.slash-dir then match kind
-      FDirectory -> name ++ "/"
-      _          -> name
-    else name
+    format-name(p.nodir.string, p.classify, opts)
   val visible = if opts.show-all then names
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
@@ -210,7 +212,12 @@ fun main()
       val targets = match paths
         Nil -> [".".path]
         _   -> paths.map(fn(p) p.path)
-      val show-header = targets.length > 1
-      targets.foreach-indexed fn(i, dir-path)
-        if i > 0 then println("")
+      val (dirs, files) = targets.partition(fn(t) is-directory(t))
+      // Print files first (no header), like GNU ls
+      files.foreach fn(f)
+        println(format-name(f.string, f.classify, opts))
+      // Then directories, with headers if multiple targets
+      val show-header = dirs.length > 1 || files.length > 0
+      dirs.foreach-indexed fn(i, dir-path)
+        if i > 0 || files.length > 0 then println("")
         list-dir(dir-path, opts, show-header)

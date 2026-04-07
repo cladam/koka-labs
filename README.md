@@ -30,7 +30,7 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 - [x] `-r` — reverse sort order
 - [x] Combined flags (`-ar`, `-ra`)
 - [x] `--` stops flag parsing
-- [ ] Multiple path arguments — `ls dir1 dir2`
+- [x] Multiple path arguments — `ls dir1 dir2`
 - [ ] Distinguish files vs directories in arguments
 - [ ] Error handling (`ls: cannot access ...`)
 
