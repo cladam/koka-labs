@@ -4,13 +4,39 @@ Exploring the [Koka](https://koka-lang.github.io/koka/doc/index.html) language b
 
 The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutils/coreutils/blob/master/src/ls.c), reimplemented piece by piece in Koka's effect-typed, functional style.
 
+## Building
+
+```bash
+git clone https://github.com/cladam/koka-labs.git
+cd koka-labs
+```
+
+### Requirements
+
+- macOS / Linux POSIX
+- Koka the language installed: `curl -sSL https://github.com/koka-lang/koka/releases/latest/download/install.sh | sudo sh`
+
 ## Running
 
+### From source
 ```bash
 ./exec ls              # build and run ls (debug)
 ./exec ls /tmp         # with arguments
 ./exec ls -ar /tmp     # with flags
-./exec -O ls           # optimized build
+./exec -O ls           # optimised build
+
+# Build and produce a binary
+koka -O2 src/ls.kk 2>&1 | tee build.log
+BINARY=$(grep '^created :' build.log | awk '{print $3}')
+cp "$BINARY" koka-ls
+chmod +x koka-ls
+```
+
+### From built binary
+```bash
+./koka-ls
+
+# See implemented flags with --help
 ```
 
 ### macOS: downloaded binary
@@ -20,6 +46,8 @@ macOS Gatekeeper quarantines binaries downloaded from the internet. After downlo
 ```bash
 xattr -d com.apple.quarantine koka-ls
 ```
+
+---
 
 ## Programs
 
