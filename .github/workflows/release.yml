@@ -49,6 +49,10 @@ jobs:
       - name: Verify binary
         run: ./koka-ls --version
 
+      - name: Strip binary (Linux)
+        if: runner.os == 'Linux'
+        run: strip koka-ls
+
       - name: Ad-hoc codesign (macOS)
         if: runner.os == 'macOS'
         run: codesign --sign - --force koka-ls
