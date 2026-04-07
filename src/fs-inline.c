@@ -21,7 +21,7 @@ static bool kk_os_is_symlink(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return false;
-  return ((st.st_mode & S_IFLNK) != 0);
+  return ((st.st_mode & S_IFMT) == S_IFLNK);
 }
 
 static bool kk_os_is_executable(kk_string_t path, kk_context_t* ctx) {
@@ -43,7 +43,7 @@ static bool kk_os_is_fifo(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return false;
-  return ((st.st_mode & S_IFIFO) != 0);
+  return ((st.st_mode & S_IFMT) == S_IFIFO);
 }
 
 static bool kk_os_is_socket(kk_string_t path, kk_context_t* ctx) {
@@ -54,6 +54,6 @@ static bool kk_os_is_socket(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return false;
-  return ((st.st_mode & S_IFSOCK) != 0);
+  return ((st.st_mode & S_IFMT) == S_IFSOCK);
 }
 

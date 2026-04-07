@@ -40,9 +40,10 @@ struct options
   show-all : bool = False // -a
   reverse  : bool = False // -r
   fs-type  : bool = False // -F
+  slash-dir: bool = False // -p
 
 // ---------------------------------------------------------------------------
-// File classification — for -F flag
+// File classification for -F flag
 // GNU ls -F appends: / (dir), @ (symlink), * (exec), = (socket),
 // | (FIFO), % (whiteout). Symlink is checked first via lstat so that
 // a symlink to a directory shows '@' rather than '/'.
@@ -97,6 +98,7 @@ val usage = [
   "  -a             do not ignore entries starting with .",
   "  -r             reverse order while sorting",
   "  -F             append indicator (one of /@ *=|) to entries",
+  "  -p             append / indicator to directories",
   "      --help     show this help and exit",
   "      --version  show version and exit"
 ].join("\n")
@@ -136,6 +138,7 @@ fun parse-args(args : list<string>, opts : options = Options(), paths : list<str
           'a' -> o(show-all = True)
           'r' -> o(reverse = True)
           'F' -> o(fs-type = True)
+          'p' -> o(slash-dir = True)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -179,8 +182,12 @@ fun list-dir(dir-path : path, opts : options)
   val entries = list-directory(dir-path)
   val names   = entries.map fn(p)
     val name = p.nodir.string
-    if opts.fs-type then name ++ p.classify.suffix else name
-    // if opts.fs-type then name ++ classify-suffix(p) else name
+    val kind = p.classify
+    if opts.fs-type then name ++ kind.suffix
+    elif opts.slash-dir then match kind
+      FDirectory -> name ++ "/"
+      _          -> name
+    else name
   val visible = if opts.show-all then names
                 else names.filter(fn(n) !n.is-hidden)
   val sorted  = if opts.reverse then visible.sort(fn(a, b) cmp(b, a))

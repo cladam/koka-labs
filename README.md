@@ -50,7 +50,7 @@ The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutil
 
 ### Phase 4 — Indicators & Recursion
 - [x] `-F` — append file type indicator (`/`, `*`, `@`, etc.)
-- [ ] `-p` — append `/` to directories
+- [x] `-p` — append `/` to directories
 - [ ] `-R` — recursive listing
 - [ ] `-d` — list directory itself, don't descend
 
