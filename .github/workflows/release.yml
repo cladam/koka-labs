@@ -21,15 +21,13 @@ jobs:
             artifact: koka-ls-linux-x86_64
           - os: macos-latest
             artifact: koka-ls-macos-arm64
-          - os: macos-13
-            artifact: koka-ls-macos-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Koka
         run: |
-          curl -sSL https://github.com/koka-lang/koka/releases/latest/download/install.sh | sh
+          curl -sSL https://github.com/koka-lang/koka/releases/latest/download/install.sh | sudo sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Build (release)
