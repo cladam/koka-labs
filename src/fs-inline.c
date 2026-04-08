@@ -35,6 +35,7 @@
 */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static bool kk_os_is_symlink(kk_string_t path, kk_context_t* ctx) {
   struct stat st = { 0 };
@@ -99,3 +100,7 @@ static kk_unit_t kk_os_eprint(kk_string_t msg, kk_context_t* ctx) {
   return kk_Unit;
 }
 
+// Checks if stdout is a terminal
+static bool kk_os_isatty_stdout(kk_context_t* ctx) {
+  return isatty(STDOUT_FILENO) != 0;
+}

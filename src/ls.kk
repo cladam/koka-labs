@@ -48,6 +48,9 @@ extern is-fifo(p : string) : fsys bool
 extern is-socket(p : string) : fsys bool
   c "kk_os_is_socket"
 
+extern stdout-is-tty() : fsys bool
+  c "kk_os_isatty_stdout"
+  
 extern stat-error(p : string) : fsys string
   c "kk_os_stat_error"
 
@@ -120,18 +123,18 @@ fun classify-suffix(p : path) : fsys string
 // ---------------------------------------------------------------------------
 
 val usage = [
-	"Usage: ls [OPTION]... [FILE]...",
-	"List information about the FILEs (the current directory by default).",
-	"",
-	"  -a, --all          do not ignore entries starting with .(includes . and ..)",
-	"  -A, --almost-all   like -a, but do not list . and ..",
-	"  -C                 list entries by columns",
-	"  -r, --reverse      reverse order while sorting",
-	"  -F, --classify     append indicator (one of /@*=|) to entries",
-	"  -p                 append / indicator to directories",
-	"  -1                 list one file per line",
-	"      --help         show this help and exit",
-	"      --version      show version and exit"
+    "Usage: ls [OPTION]... [FILE]...",
+    "List information about the FILEs (the current directory by default).",
+    "",
+    "  -a, --all          do not ignore entries starting with .(includes . and ..)",
+    "  -A, --almost-all   like -a, but do not list . and ..",
+    "  -C                 list entries by columns",
+    "  -r, --reverse      reverse order while sorting",
+    "  -F, --classify     append indicator (one of /@*=|) to entries",
+    "  -p                 append / indicator to directories",
+    "  -1                 list one file per line",
+    "      --help         show this help and exit",
+    "      --version      show version and exit"
 ].join("\n")
 
 fun show-help() : io ()
