@@ -120,18 +120,18 @@ fun classify-suffix(p : path) : fsys string
 // ---------------------------------------------------------------------------
 
 val usage = [
-  "Usage: ls [OPTION]... [FILE]...",
-  "List information about the FILEs (the current directory by default).",
-  "",
-  "  -a             do not ignore entries starting with . (includes . and ..)",
-  "  -A             like -a, but do not list . and ..",
-  "  -C             list entries by columns",
-  "  -F             append indicator (one of /@ *=|) to entries",
-  "  -p             append / indicator to directories",
-  "  -r             reverse order while sorting",
-  "  -1             list one file per line",
-  "      --help     show this help and exit",
-  "      --version  show version and exit"
+	"Usage: ls [OPTION]... [FILE]...",
+	"List information about the FILEs (the current directory by default).",
+	"",
+	"  -a, --all          do not ignore entries starting with .(includes . and ..)",
+	"  -A, --almost-all   like -a, but do not list . and ..",
+	"  -C                 list entries by columns",
+	"  -r, --reverse      reverse order while sorting",
+	"  -F, --classify     append indicator (one of /@*=|) to entries",
+	"  -p                 append / indicator to directories",
+	"  -1                 list one file per line",
+	"      --help         show this help and exit",
+	"      --version      show version and exit"
 ].join("\n")
 
 fun show-help() : io ()
@@ -163,6 +163,20 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons("--", rest) -> Parsed(opts, paths.reverse ++ rest)
     Cons("--help", _) -> HelpRequested
     Cons("--version", _) -> VersionRequested
+    // Long options — one match per --flag
+    Cons("--all", rest) ->
+      parse-args(rest, opts(show-all = True, almost-all = False), paths)
+    Cons("--almost-all", rest) ->
+      parse-args(rest, opts(almost-all = True, show-all = False), paths)
+    Cons("--reverse", rest) ->
+      parse-args(rest, opts(reverse = True), paths)
+    Cons("--classify", rest) ->
+      parse-args(rest, opts(fs-type = True), paths)
+    // Impure...
+    //Cons(arg, rest) | arg.starts-with("--").bool ->
+    //  eprintln("ls: unrecognised option '" ++ arg ++ "'")
+    //  parse-args(rest, opts, paths)
+    // Short flags — can be combined like -ar, -ra, etc.
     Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
       val new-opts = arg.slice.drop(1).string.list.foldl(opts) fn(o, c)
         match c
