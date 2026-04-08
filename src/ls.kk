@@ -125,11 +125,11 @@ val usage = [
   "",
   "  -a             do not ignore entries starting with . (includes . and ..)",
   "  -A             like -a, but do not list . and ..",
-  "  -r             reverse order while sorting",
+  "  -C             list entries by columns",
   "  -F             append indicator (one of /@ *=|) to entries",
   "  -p             append / indicator to directories",
+  "  -r             reverse order while sorting",
   "  -1             list one file per line",
-  "  -C             list entries by columns",
   "      --help     show this help and exit",
   "      --version  show version and exit"
 ].join("\n")
