@@ -50,7 +50,7 @@ extern is-socket(p : string) : fsys bool
 
 extern stdout-is-tty() : fsys bool
   c "kk_os_isatty_stdout"
-  
+
 extern stat-error(p : string) : fsys string
   c "kk_os_stat_error"
 
@@ -257,13 +257,17 @@ pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string
 pub fun list-dir(dir-path : path, opts : options, show-header : bool)
   if show-header then println(dir-path.string ++ ":")
   val sorted = list-dir-names(dir-path, opts)
-  // Render output: one-per-line (-1) or columns (default)
-  if opts.one-entry then
-    sorted.foreach(fn(name) println(name))
-  else
+  // Render output: -1 forces one-per-line, -C forces columns,
+  // otherwise columns if stdout is a tty, one-per-line if piped.
+  val use-columns = if opts.one-entry then False
+                    elif opts.force-columns then True
+                    else stdout-is-tty()
+  if use-columns then
     val width = terminal-width()
     val lines = render-column-major(sorted, width)
     lines.foreach(fn(line) println(line))
+  else
+    sorted.foreach(fn(name) println(name))
 
 // ---------------------------------------------------------------------------
 // Entry point
