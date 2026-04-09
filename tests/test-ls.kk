@@ -36,7 +36,7 @@ fun create-test-file(name : string, content : string = "") : <fsys,exn> () {
 pub fun main() : io ()
   // Smoke tests: verify list-dir doesn't crash with various options
   println(bold("Running smoke tests..."))
-  
+
   list-dir("." .path, Options(), False)
   list-dir("." .path, Options(show-all = True), False)
   list-dir("." .path, Options(almost-all = True), False)
@@ -44,36 +44,44 @@ pub fun main() : io ()
 
   // Integration tests
   println(bold("Running integration tests..."))
+  defaultKIntegrationHandler
+    // Output assertions: verify expected entries appear
+    itest("default listing contains README.md")
+      val entries = list-dir-names("." .path, Options())
+      assert/is-true(entries.any(fn(e) e == "README.md"))
 
-  // Output assertions: verify expected entries appear
-  val entries = list-dir-names("." .path, Options())
-  assert-contains(entries, "README.md", "default listing contains README.md")
-  assert-contains(entries, "src", "default listing contains src")
+    itest("default listing contains src")
+      val entries = list-dir-names("." .path, Options())
+      assert/is-true(entries.any(fn(e) e == "src"))
 
-  val entries-a = list-dir-names("." .path, Options(show-all = True))
-  assert-contains(entries-a, ".", "show-all listing contains .")
-  assert-contains(entries-a, "..", "show-all listing contains ..")
-  assert-contains(entries-a, "README.md", "show-all listing contains README.md")
+    itest("show-all listing contains .")
+      val entries = list-dir-names("." .path, Options(show-all = True))
+      assert/is-true(entries.any(fn(e) e == "."))
 
-  val entries-r = list-dir-names("." .path, Options(reverse = True))
-  val first = entries-r.head.default("")
-  val last  = entries-r.last.default("")
-  if first > last then
-    println(green("  \u2713 ") ++ "reverse listing is in descending order")
-  else
-    println(red("  \u2717 ") ++ "reverse listing is in descending order")
-    println("      first: " ++ first ++ ", last: " ++ last)
-    process-exit(1)
+    itest("show-all listing contains ..")
+      val entries = list-dir-names("." .path, Options(show-all = True))
+      assert/is-true(entries.any(fn(e) e == ".."))
 
-  // --- ignore-backups integration test ---
-  // Create a backup file, verify -B hides it
-  val backup-file = "tests/test-ls.kk~"
-  create-test-file(backup-file, "backup content")
-  println(green("  \u2713 ") ++ "created backup file for -B test: " ++ backup-file)
-  val with-backups = list-dir-names("tests".path, Options())
-  assert-contains(with-backups, "test-ls.kk~", "-B: default listing shows backup file")
-  val without-backups = list-dir-names("tests".path, Options(ignore-backups = True))
-  assert-not-contains(without-backups, "test-ls.kk~", "-B: ignore-backups hides backup file")
+    itest("show-all listing contains README.md")
+      val entries = list-dir-names("." .path, Options(show-all = True))
+      assert/is-true(entries.any(fn(e) e == "README.md"))
+
+    itest("reverse listing is in descending order")
+      val entries-r = list-dir-names("." .path, Options(reverse = True))
+      val first = entries-r.head.default("")
+      val last  = entries-r.last.default("")
+      assert/is-true(first > last)
+
+    // --- ignore-backups integration test ---
+    itest("-B: default listing shows backup file")
+      val backup-file = "tests/test-ls.kk~"
+      create-test-file(backup-file, "backup content")
+      val entries = list-dir-names("tests".path, Options())
+      assert/is-true(entries.any(fn(e) e == "test-ls.kk~"))
+
+    itest("-B: ignore-backups hides backup file")
+      val entries = list-dir-names("tests".path, Options(ignore-backups = True))
+      assert/is-true(entries.all(fn(e) e != "test-ls.kk~"))
 
   // Unit tests for pure logic
   println(bold("Running unit tests..."))
