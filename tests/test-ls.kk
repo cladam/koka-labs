@@ -21,10 +21,17 @@
  * SOFTWARE.
 */
 import std/os/path
+import std/os/file
 import std/os/dir
 import std/os/env
 import ls
 import assert
+
+// A helper to ensure a file exists with specific content
+fun create-test-file(name : string, content : string = "") : <fsys,exn> () {
+  val p = name.path
+  write-text-file(p, content)
+}
 
 pub fun main() : io ()
   // Smoke tests: verify list-dir doesn't crash with various options
@@ -224,8 +231,9 @@ pub fun main() : io ()
 
   // --- ignore-backups integration test ---
   // Create a backup file, verify -B hides it, then clean up
-  val backup-file = "tests" ++ "/" ++ "test-ls.kk~"
-  write-text-file(backup-file.path, "backup")
+  val backup-file = "tests/test-ls.kk~"
+  create-test-file(backup-file, "backup content")
+  println(green("  \u2713 ") ++ "created backup file for -B test: " ++ backup-file)
   val with-backups = list-dir-names("tests".path, Options())
   assert-contains(with-backups, "test-ls.kk~", "-B: default listing shows backup file")
   val without-backups = list-dir-names("tests".path, Options(ignore-backups = True))
