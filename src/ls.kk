@@ -72,6 +72,7 @@ pub struct options
   slash-dir : bool = False // -p
   one-entry : bool = False // -1
   force-columns : bool = False // -C
+  ignore-backups : bool = False // -B
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
@@ -126,15 +127,16 @@ val usage = [
     "Usage: ls [OPTION]... [FILE]...",
     "List information about the FILEs (the current directory by default).",
     "",
-    "  -a, --all          do not ignore entries starting with .(includes . and ..)",
-    "  -A, --almost-all   like -a, but do not list . and ..",
-    "  -C                 list entries by columns",
-    "  -r, --reverse      reverse order while sorting",
-    "  -F, --classify     append indicator (one of /@*=|) to entries",
-    "  -p                 append / indicator to directories",
-    "  -1                 list one file per line",
-    "      --help         show this help and exit",
-    "      --version      show version and exit"
+    "  -a, --all              do not ignore entries starting with .(includes . and ..)",
+    "  -A, --almost-all       like -a, but do not list . and ..",
+    "  -B, --ignore-backups   do not list implied entries ending with ~",
+    "  -C                     list entries by columns",
+    "  -r, --reverse          reverse order while sorting",
+    "  -F, --classify         append indicator (one of /@*=|) to entries",
+    "  -p, --slash-dir        append / indicator to directories",
+    "  -1                     list one file per line",
+    "      --help             show this help and exit",
+    "      --version          show version and exit"
 ].join("\n")
 
 fun show-help() : io ()
@@ -190,6 +192,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'p' -> o(slash-dir = True)
           '1' -> o(one-entry = True, force-columns = False)
           'C' -> o(force-columns = True, one-entry = False)
+          'B' -> o(ignore-backups = True)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -223,6 +226,9 @@ pub fun is-hidden(name : string) : bool
     Just('.') -> True
     _         -> False
 
+pub fun is-backup(name : string) : bool
+  name.ends-with("~").bool
+
 // Format a single entry name with optional -F / -p suffix
 pub fun format-name(name : string, kind : file-kind, opts : options) : string
   if opts.fs-type then name ++ kind.suffix
@@ -251,8 +257,10 @@ pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string
                   Cons(dot, Cons(dotdot, names))
                 elif opts.almost-all then names
                 else names.filter(fn(n) !n.is-hidden)
-  if opts.reverse then visible.sort(fn(a, b) cmp(b, a))
-  else visible.sort(cmp)
+  val filtered = if opts.ignore-backups then visible.filter(fn(n) !n.is-backup)
+                 else visible
+  if opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
+  else filtered.sort(cmp)
 
 pub fun list-dir(dir-path : path, opts : options, show-header : bool)
   if show-header then println(dir-path.string ++ ":")
