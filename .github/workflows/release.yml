@@ -51,7 +51,7 @@ jobs:
 
       - name: Run tests
         run: |
-          koka -isrc tests/test-ls.kk 2>&1 | tee test-build.log
+          koka tests/test-ls.kk 2>&1 | tee test-build.log
           TEST_BINARY=$(grep '^created :' test-build.log | awk '{print $3}')
           "$TEST_BINARY"
 

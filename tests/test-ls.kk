@@ -24,7 +24,7 @@ import std/os/path
 import std/os/file
 import std/os/dir
 import std/os/env
-import ls
+import src/ls
 import assert
 
 // A helper to ensure a file exists with specific content
