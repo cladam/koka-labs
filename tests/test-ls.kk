@@ -110,6 +110,18 @@ pub fun main() : io ()
         _ -> False
       assert/is-false(sa)
       assert/is-true(aa)
+    
+    test("parse-args -B enables ignore-backups")
+      val hb = match parse-args(["-B"])
+        Parsed(opts, _) -> opts.ignore-backups
+        _ -> False
+      assert/is-true(hb)
+
+    test("parse-args --ignore-backups enables ignore-backups")
+      val hb = match parse-args(["--ignore-backups"])
+        Parsed(opts, _) -> opts.ignore-backups
+        _ -> False
+      assert/is-true(hb)
 
     test("parse-args -r enables reverse")
       val rev = match parse-args(["-r"])
@@ -209,3 +221,12 @@ pub fun main() : io ()
 
     test("in-range: entry count is reasonable")
       assert/in-range(5, 1, 100)
+
+  // --- ignore-backups integration test ---
+  // Create a backup file, verify -B hides it, then clean up
+  val backup-file = "tests" ++ "/" ++ "test-ls.kk~"
+  write-text-file(backup-file.path, "backup")
+  val with-backups = list-dir-names("tests".path, Options())
+  assert-contains(with-backups, "test-ls.kk~", "-B: default listing shows backup file")
+  val without-backups = list-dir-names("tests".path, Options(ignore-backups = True))
+  assert-not-contains(without-backups, "test-ls.kk~", "-B: ignore-backups hides backup file")

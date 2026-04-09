@@ -192,6 +192,15 @@ pub fun assert-contains(entries : list<string>, name : string, msg : string) : i
     println("      entries: " ++ entries.show)
     process-exit(1)
 
+pub fun assert-not-contains(entries : list<string>, name : string, msg : string) : io ()
+  if entries.all(fn(e) e != name) then
+    println(green("  \u2713 ") ++ msg)
+  else
+    println(red("  \u2717 ") ++ msg)
+    println("      expected NOT to find: " ++ name)
+    println("      entries: " ++ entries.show)
+    process-exit(1)
+
 // ---------------------------------------------------------------------------
 // Default handler — tracks counts and exits non-zero on failure
 // ---------------------------------------------------------------------------
