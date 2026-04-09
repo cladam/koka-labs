@@ -44,7 +44,7 @@ pub fun red(s : string)    : string
 fun yellow(s : string) : string
   ansi-yellow ++ s ++ ansi-reset
 
-fun bold(s : string)   : string
+pub fun bold(s : string)   : string
   ansi-bold   ++ s ++ ansi-reset
 
 // ---------------------------------------------------------------------------

@@ -173,6 +173,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(show-all = True, almost-all = False), paths)
     Cons("--almost-all", rest) ->
       parse-args(rest, opts(almost-all = True, show-all = False), paths)
+    Cons("--ignore-backups", rest) ->
+      parse-args(rest, opts(ignore-backups = True), paths)
     Cons("--reverse", rest) ->
       parse-args(rest, opts(reverse = True), paths)
     Cons("--classify", rest) ->

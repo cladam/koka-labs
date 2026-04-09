@@ -35,10 +35,15 @@ fun create-test-file(name : string, content : string = "") : <fsys,exn> () {
 
 pub fun main() : io ()
   // Smoke tests: verify list-dir doesn't crash with various options
+  println(bold("Running smoke tests..."))
+  
   list-dir("." .path, Options(), False)
   list-dir("." .path, Options(show-all = True), False)
   list-dir("." .path, Options(almost-all = True), False)
   list-dir("." .path, Options(reverse = True), False)
+
+  // Integration tests
+  println(bold("Running integration tests..."))
 
   // Output assertions: verify expected entries appear
   val entries = list-dir-names("." .path, Options())
@@ -60,7 +65,18 @@ pub fun main() : io ()
     println("      first: " ++ first ++ ", last: " ++ last)
     process-exit(1)
 
+  // --- ignore-backups integration test ---
+  // Create a backup file, verify -B hides it
+  val backup-file = "tests/test-ls.kk~"
+  create-test-file(backup-file, "backup content")
+  println(green("  \u2713 ") ++ "created backup file for -B test: " ++ backup-file)
+  val with-backups = list-dir-names("tests".path, Options())
+  assert-contains(with-backups, "test-ls.kk~", "-B: default listing shows backup file")
+  val without-backups = list-dir-names("tests".path, Options(ignore-backups = True))
+  assert-not-contains(without-backups, "test-ls.kk~", "-B: ignore-backups hides backup file")
+
   // Unit tests for pure logic
+  println(bold("Running unit tests..."))
   defaultKUnitHandler
     // --- Options defaults ---
     test("Options should not have show-all by default")
@@ -118,6 +134,7 @@ pub fun main() : io ()
       assert/is-false(sa)
       assert/is-true(aa)
     
+    // Ignnore backup files tests
     test("parse-args -B enables ignore-backups")
       val hb = match parse-args(["-B"])
         Parsed(opts, _) -> opts.ignore-backups
@@ -229,12 +246,3 @@ pub fun main() : io ()
     test("in-range: entry count is reasonable")
       assert/in-range(5, 1, 100)
 
-  // --- ignore-backups integration test ---
-  // Create a backup file, verify -B hides it, then clean up
-  val backup-file = "tests/test-ls.kk~"
-  create-test-file(backup-file, "backup content")
-  println(green("  \u2713 ") ++ "created backup file for -B test: " ++ backup-file)
-  val with-backups = list-dir-names("tests".path, Options())
-  assert-contains(with-backups, "test-ls.kk~", "-B: default listing shows backup file")
-  val without-backups = list-dir-names("tests".path, Options(ignore-backups = True))
-  assert-not-contains(without-backups, "test-ls.kk~", "-B: ignore-backups hides backup file")
