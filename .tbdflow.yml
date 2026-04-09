@@ -1,5 +1,5 @@
 main_branch_name: main
-release_url_template: https://github.com/owner/repository/releases/tag/{{version}}
+release_url_template: https://github.com/cladam/koka-labs/releases/tag/{{version}}
 stale_branch_threshold_days: 1
 monorepo:
   enabled: false
@@ -7,8 +7,8 @@ monorepo:
 issue_handling:
   strategy: branch-name
 review:
-  enabled: false
-  default_reviewers: []
+  enabled: true
+  default_reviewers: ["cladam"]
   strategy: github-issue
   workflow: null
   rules: []
@@ -19,7 +19,7 @@ review:
     dismissed: review-dismissed
   concern_blocks_status: false
 radar:
-  enabled: false
+  enabled: true
   level: file
   on_sync: true
   on_commit: off
@@ -28,7 +28,7 @@ radar:
   - '*-lock.*'
   - CHANGELOG.md
 ci_check:
-  enabled: false
+  enabled: true
 branch_types:
   docs: docs/
   ci: ci/
