@@ -43,7 +43,7 @@ pub fun main() : io ()
   list-dir("." .path, Options(reverse = True), False)
 
   // Integration tests
-  println(bold("Running integration tests..."))
+  println(bold("\nRunning integration tests..."))
   defaultKIntegrationHandler
     // Output assertions: verify expected entries appear
     itest("default listing contains README.md")
@@ -84,7 +84,7 @@ pub fun main() : io ()
       assert/is-true(entries.all(fn(e) e != "test-ls.kk~"))
 
   // Unit tests for pure logic
-  println(bold("Running unit tests..."))
+  println(bold("\nRunning unit tests..."))
   defaultKUnitHandler
     // --- Options defaults ---
     test("Options should not have show-all by default")
