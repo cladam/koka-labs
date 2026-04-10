@@ -67,14 +67,15 @@ fun eprintln(msg : string) : fsys ()
 pub struct options
   show-all        : bool = False // -a
   almost-all      : bool = False // -A
-  reverse         : bool = False // -r
-  fs-type         : bool = False // -F
-  slash-dir       : bool = False // -p
-  one-entry       : bool = False // -1
-  force-columns   : bool = False // -C
   ignore-backups  : bool = False // -B
+  force-columns   : bool = False // -C
   directories     : bool = False // -d
+  fs-type         : bool = False // -F
+  no-sort         : bool = False // -f
+  slash-dir       : bool = False // -p
+  reverse         : bool = False // -r
   sort-none       : bool = False // -U
+  one-entry       : bool = False // -1
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
@@ -133,9 +134,9 @@ val usage = [
     "  -A, --almost-all       like -a, but do not list . and ..",
     "  -B, --ignore-backups   do not list implied entries ending with ~",
     "  -C                     list entries by columns",
-    "  -r, --reverse          reverse order while sorting",
     "  -F, --classify         append indicator (one of /@*=|) to entries",
     "  -p, --slash-dir        append / indicator to directories",
+    "  -r, --reverse          reverse order while sorting",
     "  -U, --sort=none        do not sort; list entries in directory order",
     "  -1                     list one file per line",
     "      --help             show this help and exit",
@@ -164,6 +165,7 @@ pub type parse-result
   Parsed(opts : options, paths : list<string>)
   HelpRequested
   VersionRequested
+  InvalidFlag(flag : string)
 
 pub fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : parse-result
   match args
@@ -188,21 +190,40 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     //Cons(arg, rest) | arg.starts-with("--").bool ->
     //  eprintln("ls: unrecognised option '" ++ arg ++ "'")
     //  parse-args(rest, opts, paths)
+    // Unrecognised long options
+    Cons(arg, _) | arg.starts-with("--").bool ->
+      InvalidFlag(arg)
     // Short flags — can be combined like -ar, -ra, etc.
     Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
-      val new-opts = arg.slice.drop(1).string.list.foldl(opts) fn(o, c)
+      val chars = arg.slice.drop(1).string.list
+      val bad = chars.filter fn(c)
         match c
-          'a' -> o(show-all = True, almost-all = False)
-          'A' -> o(almost-all = True, show-all = False)
-          'r' -> o(reverse = True)
-          'F' -> o(fs-type = True)
-          'p' -> o(slash-dir = True)
-          '1' -> o(one-entry = True, force-columns = False)
-          'C' -> o(force-columns = True, one-entry = False)
-          'B' -> o(ignore-backups = True)
-          'U' -> o(sort-none = True)
-          _   -> o
-      parse-args(rest, new-opts, paths)
+          'a' -> False
+          'A' -> False
+          'r' -> False
+          'F' -> False
+          'p' -> False
+          '1' -> False
+          'C' -> False
+          'B' -> False
+          'U' -> False
+          _   -> True
+      match bad
+        Cons(c, _) -> InvalidFlag(string(c))
+        Nil ->
+          val new-opts = chars.foldl(opts) fn(o, c)
+            match c
+              'a' -> o(show-all = True, almost-all = False)
+              'A' -> o(almost-all = True, show-all = False)
+              'r' -> o(reverse = True)
+              'F' -> o(fs-type = True)
+              'p' -> o(slash-dir = True)
+              '1' -> o(one-entry = True, force-columns = False)
+              'C' -> o(force-columns = True, one-entry = False)
+              'B' -> o(ignore-backups = True)
+              'U' -> o(sort-none = True)
+              _   -> o
+          parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
 
 // ---------------------------------------------------------------------------
@@ -293,10 +314,15 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool)
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
+val short-usage = "usage: ls [-aABCFprU1] [--help] [--version] [file ...]"
+
 fun main()
   match get-args().parse-args
     HelpRequested -> show-help()
     VersionRequested -> show-version()
+    InvalidFlag(flag) ->
+      eprintln("ls: invalid option -- " ++ flag)
+      eprintln(short-usage)
     Parsed(opts, paths) ->
       val targets = match paths
         Nil -> [".".path]
