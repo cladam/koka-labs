@@ -221,6 +221,19 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(is-ver)
 
+    // Invalid flag
+    test("parse-args -j should trigger InvalidFlag")
+      val invalid = match parse-args(["-j"]) // -j isn't being used in GNU ls
+        InvalidFlag(_) -> True
+        _ -> False
+      assert/is-true(invalid)
+
+    test("parse-args --bogus is just bogus")
+      val invalid = match parse-args(["--bogus"]) // no bogus
+        InvalidFlag(_) -> True
+        _ -> False
+      assert/is-true(invalid)
+
     // --- is-hidden ---
     test("is-hidden returns True for dotfiles")
       assert/is-true(is-hidden(".git"))
