@@ -163,9 +163,9 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(rev)
 
-    test("parse-args -U enables no-sort")
+    test("parse-args -U enables sort-none")
       val ns = match parse-args(["-U"])
-        Parsed(opts, _) -> opts.no-sort
+        Parsed(opts, _) -> opts.sort-none
         _ -> False
       assert/is-true(ns)
 

@@ -74,7 +74,7 @@ pub struct options
   force-columns   : bool = False // -C
   ignore-backups  : bool = False // -B
   directories     : bool = False // -d
-  no-sort         : bool = False // -U
+  sort-none       : bool = False // -U
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
@@ -183,7 +183,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons("--classify", rest) ->
       parse-args(rest, opts(fs-type = True), paths)
     Cons("--sort=none", rest) ->
-      parse-args(rest, opts(no-sort = True), paths)
+      parse-args(rest, opts(sort-none = True), paths)
     // Impure...
     //Cons(arg, rest) | arg.starts-with("--").bool ->
     //  eprintln("ls: unrecognised option '" ++ arg ++ "'")
@@ -200,7 +200,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           '1' -> o(one-entry = True, force-columns = False)
           'C' -> o(force-columns = True, one-entry = False)
           'B' -> o(ignore-backups = True)
-          'U' -> o(no-sort = True)
+          'U' -> o(sort-none = True)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -267,7 +267,7 @@ pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string
                 else names.filter(fn(n) !n.is-hidden)
   val filtered = if opts.ignore-backups then visible.filter(fn(n) !n.is-backup)
                  else visible
-  if opts.no-sort then filtered
+  if opts.sort-none then filtered
   elif opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
   else filtered.sort(cmp)
 
