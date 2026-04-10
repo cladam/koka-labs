@@ -65,14 +65,16 @@ fun eprintln(msg : string) : fsys ()
 // ---------------------------------------------------------------------------
 
 pub struct options
-  show-all    : bool = False // -a (includes . and ..)
-  almost-all  : bool = False // -A (dotfiles, but not . and ..)
-  reverse     : bool = False // -r
-  fs-type   : bool = False // -F
-  slash-dir : bool = False // -p
-  one-entry : bool = False // -1
-  force-columns : bool = False // -C
-  ignore-backups : bool = False // -B
+  show-all        : bool = False // -a
+  almost-all      : bool = False // -A
+  reverse         : bool = False // -r
+  fs-type         : bool = False // -F
+  slash-dir       : bool = False // -p
+  one-entry       : bool = False // -1
+  force-columns   : bool = False // -C
+  ignore-backups  : bool = False // -B
+  directories     : bool = False // -d
+  no-sort         : bool = False // -U
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
@@ -134,6 +136,7 @@ val usage = [
     "  -r, --reverse          reverse order while sorting",
     "  -F, --classify         append indicator (one of /@*=|) to entries",
     "  -p, --slash-dir        append / indicator to directories",
+    "  -U, --sort=none        do not sort; list entries in directory order",
     "  -1                     list one file per line",
     "      --help             show this help and exit",
     "      --version          show version and exit"
@@ -179,6 +182,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(reverse = True), paths)
     Cons("--classify", rest) ->
       parse-args(rest, opts(fs-type = True), paths)
+    Cons("--sort=none", rest) ->
+      parse-args(rest, opts(no-sort = True), paths)
     // Impure...
     //Cons(arg, rest) | arg.starts-with("--").bool ->
     //  eprintln("ls: unrecognised option '" ++ arg ++ "'")
@@ -195,6 +200,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           '1' -> o(one-entry = True, force-columns = False)
           'C' -> o(force-columns = True, one-entry = False)
           'B' -> o(ignore-backups = True)
+          'U' -> o(no-sort = True)
           _   -> o
       parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -261,7 +267,8 @@ pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string
                 else names.filter(fn(n) !n.is-hidden)
   val filtered = if opts.ignore-backups then visible.filter(fn(n) !n.is-backup)
                  else visible
-  if opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
+  if opts.no-sort then filtered
+  elif opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
   else filtered.sort(cmp)
 
 pub fun list-dir(dir-path : path, opts : options, show-header : bool)

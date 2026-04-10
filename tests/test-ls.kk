@@ -43,7 +43,8 @@ pub fun main() : io ()
   list-dir("." .path, Options(reverse = True), False)
 
   // Integration tests
-  println(bold("\nRunning integration tests..."))
+  println("") // Empty line for better output
+  println(bold("Running integration tests..."))
   defaultKIntegrationHandler
     // Output assertions: verify expected entries appear
     itest("default listing contains README.md")
@@ -84,7 +85,8 @@ pub fun main() : io ()
       assert/is-true(entries.all(fn(e) e != "test-ls.kk~"))
 
   // Unit tests for pure logic
-  println(bold("\nRunning unit tests..."))
+  println("") // Empty line for better output
+  println(bold("Running unit tests..."))
   defaultKUnitHandler
     // --- Options defaults ---
     test("Options should not have show-all by default")
@@ -160,6 +162,12 @@ pub fun main() : io ()
         Parsed(opts, _) -> opts.reverse
         _ -> False
       assert/is-true(rev)
+
+    test("parse-args -U enables no-sort")
+      val ns = match parse-args(["-U"])
+        Parsed(opts, _) -> opts.no-sort
+        _ -> False
+      assert/is-true(ns)
 
     test("parse-args -F enables fs-type")
       val ft = match parse-args(["-F"])
