@@ -135,6 +135,7 @@ val usage = [
     "  -B, --ignore-backups   do not list implied entries ending with ~",
     "  -C                     list entries by columns",
     "  -F, --classify         append indicator (one of /@*=|) to entries",
+    "  -f                     same as -a -U",
     "  -p, --slash-dir        append / indicator to directories",
     "  -r, --reverse          reverse order while sorting",
     "  -U, --sort=none        do not sort; list entries in directory order",
@@ -202,6 +203,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'A' -> False
           'r' -> False
           'F' -> False
+          'f' -> False
           'p' -> False
           '1' -> False
           'C' -> False
@@ -217,6 +219,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'A' -> o(almost-all = True, show-all = False)
               'r' -> o(reverse = True)
               'F' -> o(fs-type = True)
+              'f' -> o(show-all = True, sort-none = True)
               'p' -> o(slash-dir = True)
               '1' -> o(one-entry = True, force-columns = False)
               'C' -> o(force-columns = True, one-entry = False)

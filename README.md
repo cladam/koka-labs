@@ -114,7 +114,7 @@ xattr -d com.apple.quarantine koka-ls
 - [x] `-r, --reverse` — reverse whatever the sorting method is
 - [ ] `-S, --sort=size` — sort by file size, largest first
 - [ ] `-t, --sort=time` — sort by modification time, newest first
-- [ ] `-U, --sort=none` — do not sort; list entries in directory order
+- [x] `-U, --sort=none` — do not sort; list entries in directory order
 - [ ] `-v, --sort=version` — natural sort of version numbers within text
 - [ ] `-X, --sort=extension` — sort alphabetically by file extension
 - [ ] `--sort=name` — sort by name (default; explicit override)
@@ -122,7 +122,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `-c, --time=ctime` — use/sort by status change time
 - [ ] `-u, --time=atime` — use/sort by access time
 - [ ] `--time=WORD` — select timestamp (atime, ctime, mtime, birth)
-- [ ] `-f` — do not sort; enable `-a` and `-U`
+- [f] `-f` — do not sort; enable `-a` and `-U`
 - [ ] `--group-directories-first` — group directories before files
 
 ### Phase 5 — General output formatting
