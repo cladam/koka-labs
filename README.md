@@ -72,7 +72,7 @@ xattr -d com.apple.quarantine koka-ls
 - [x] Multiple path arguments — `ls dir1 dir2`
 - [x] Distinguish files vs directories in arguments
 - [x] Error handling (`ls: cannot access ...`)
-- [ ] Exit codes (0 success, 1 minor problems, 2 serious trouble)
+- [x] Exit codes (0 success, 1 minor problems, 2 serious trouble)
 
 ### Phase 2 — Which files are listed
 
@@ -122,7 +122,7 @@ xattr -d com.apple.quarantine koka-ls
 - [ ] `-c, --time=ctime` — use/sort by status change time
 - [ ] `-u, --time=atime` — use/sort by access time
 - [ ] `--time=WORD` — select timestamp (atime, ctime, mtime, birth)
-- [f] `-f` — do not sort; enable `-a` and `-U`
+- [x] `-f` — do not sort; enable `-a` and `-U`
 - [ ] `--group-directories-first` — group directories before files
 
 ### Phase 5 — General output formatting
