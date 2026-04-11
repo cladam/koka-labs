@@ -25,12 +25,14 @@ module ls
 import std/os/path
 import std/os/dir
 import std/os/env
+import std/num/int32
+
 import version
 import columns
 
 // Import my C code
 extern import
-  c file "fs-inline.c"
+  c file "ls-inline.c"
 
 // ---------------------------------------------------------------------------
 // C FFI — file-type detection via stat/lstat (POSIX)
@@ -59,6 +61,21 @@ extern eprint(msg : string) : fsys ()
 
 fun eprintln(msg : string) : fsys ()
   eprint(msg ++ "\n")
+
+// ---------------------------------------------------------------------------
+// Handle exit statuses
+// - Exit 0: Success
+// - Exit 1: The filesystem changed underneath ls while it was working, or something peripheral went wrong. 
+//   Not really the user's fault.
+// - Exit 2: The user asked for something that doesn't exist or can't be accessed, OR ls was invoked incorrectly. 
+//   The user needs to fix their command.
+// ---------------------------------------------------------------------------
+pub extern exit( code : int ) : io ()
+  c inline "exit(kk_integer_clamp32(#1, kk_context()))"
+
+fun set-exit-status(status : ref<h, int>, serious : bool) : st<h> ()
+  val code = if serious then 2 else 1
+  if ref/(!)( status) < code then status := code
 
 // ---------------------------------------------------------------------------
 // Options — will grow as I add flags like -l, -R, -t, etc.
@@ -157,7 +174,7 @@ fun show-version() : io ()
 // ---------------------------------------------------------------------------
 // Argument parsing
 // GNU ls supports combined short flags like -ar, -ra, etc.
-// We separate flag arguments (starting with '-') from path arguments.
+// Separate flag arguments (starting with '-') from path arguments.
 // "--" terminates flag parsing, everything after is a path.
 // Long options --help and --version are matched before short-flag expansion.
 // ---------------------------------------------------------------------------
@@ -231,7 +248,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
 
 // ---------------------------------------------------------------------------
 // Sorting
-// Koka's standard library doesn't include a list sort, so we provide our own.
+// Koka's standard library doesn't include a list sort.
 // Simple insertion sort — fine for directory listings.
 // ---------------------------------------------------------------------------
 
@@ -320,12 +337,14 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool)
 val short-usage = "usage: ls [-aABCFprU1] [--help] [--version] [file ...]"
 
 fun main()
+  var status:= 0
   match get-args().parse-args
     HelpRequested -> show-help()
     VersionRequested -> show-version()
     InvalidFlag(flag) ->
       eprintln("ls: invalid option -- " ++ flag)
       eprintln(short-usage)
+      exit(2)
     Parsed(opts, paths) ->
       val targets = match paths
         Nil -> [".".path]
@@ -346,3 +365,4 @@ fun main()
       dirs.foreach-indexed fn(i, dir-path)
         if i > 0 || files.length > 0 then println("")
         list-dir(dir-path, opts, show-header)
+  exit(status)

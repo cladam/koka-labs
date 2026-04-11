@@ -1,5 +1,5 @@
 /*
- * fs-inline.c - File type detection for ls -F flag.
+ * ls-inline.c - File type detection for ls -F flag.
  * Copyright (C) 2026 Claes Adamsson <claes.adamsson@gmail.com>
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
