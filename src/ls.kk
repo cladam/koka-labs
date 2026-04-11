@@ -63,10 +63,10 @@ fun eprintln(msg : string) : fsys ()
 // ---------------------------------------------------------------------------
 // Handle exit statuses
 // - Exit 0: Success
-// - Exit 1: The filesystem changed underneath ls while it was working, or something peripheral went wrong. 
-//   Not really the user's fault.
-// - Exit 2: The user asked for something that doesn't exist or can't be accessed, OR ls was invoked incorrectly. 
-//   The user needs to fix their command.
+// - Exit 1: The filesystem changed underneath ls while it was working, 
+//   or something peripheral went wrong. Not really the user's fault.
+// - Exit 2: The user asked for something that doesn't exist or can't be accessed, 
+//   OR ls was invoked incorrectly. The user needs to fix their command.
 // ---------------------------------------------------------------------------
 pub extern exit( code : int ) : io ()
   c inline "exit(kk_integer_clamp32(#1, kk_context()))"
@@ -126,16 +126,6 @@ fun suffix(kind : file-kind) : string
     FSocket     -> "="
     FFifo       -> "|"
     FRegular    -> ""
-
-// Alternatively, combine classify and suffix into one function, not so elegant
-fun classify-suffix(p : path) : fsys string
-  val s = p.string
-  if is-symlink(s)      then "@"
-  elif is-directory(p)  then "/"
-  elif is-executable(s) then "*"
-  elif is-socket(s)     then "="
-  elif is-fifo(s)       then "|"
-  else ""
 
 // ---------------------------------------------------------------------------
 // Help & version
@@ -202,10 +192,6 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(fs-type = True), paths)
     Cons("--sort=none", rest) ->
       parse-args(rest, opts(sort-none = True), paths)
-    // Impure...
-    //Cons(arg, rest) | arg.starts-with("--").bool ->
-    //  eprintln("ls: unrecognised option '" ++ arg ++ "'")
-    //  parse-args(rest, opts, paths)
     // Unrecognised long options
     Cons(arg, _) | arg.starts-with("--").bool ->
       InvalidFlag(arg)
@@ -334,7 +320,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCFprU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABCfFprU1] [--help] [--version] [file ...]"
 
 fun main()
   var status := 0
