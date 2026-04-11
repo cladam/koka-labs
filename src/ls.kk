@@ -73,9 +73,9 @@ fun eprintln(msg : string) : fsys ()
 pub extern exit( code : int ) : io ()
   c inline "exit(kk_integer_clamp32(#1, kk_context()))"
 
-fun set-exit-status(status : ref<h, int>, serious : bool) : st<h> ()
+fun set-exit-status(current : int, serious : bool) : int
   val code = if serious then 2 else 1
-  if ref/(!)( status) < code then status := code
+  if current < code then code else current
 
 // ---------------------------------------------------------------------------
 // Options — will grow as I add flags like -l, -R, -t, etc.
@@ -355,6 +355,7 @@ fun main()
         if err.is-empty then True
         else
           eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
+          status := set-exit-status(status, serious = True)
           False
       val (dirs, files) = existing.partition(fn(t) is-directory(t))
       // Print files first (no header), like GNU ls
