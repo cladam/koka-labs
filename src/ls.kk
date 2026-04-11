@@ -25,8 +25,6 @@ module ls
 import std/os/path
 import std/os/dir
 import std/os/env
-import std/num/int32
-
 import version
 import columns
 
@@ -236,6 +234,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'A' -> o(almost-all = True, show-all = False)
               'r' -> o(reverse = True)
               'F' -> o(fs-type = True)
+              // TODO: GNU ls -f also disables -l, -s, --color, and -F.
+              // Add those overrides here later
               'f' -> o(show-all = True, sort-none = True)
               'p' -> o(slash-dir = True)
               '1' -> o(one-entry = True, force-columns = False)
@@ -292,31 +292,30 @@ pub fun format-name(name : string, kind : file-kind, opts : options) : string
 // list-directory returns full paths; we display only the basename, matching
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
-
-pub fun list-dir-names(dir-path : path, opts : options) : <fsys,exn> list<string>
-  val entries = list-directory(dir-path)
+pub fun list-dir-names(dir-path : path, opts : options)
+  val entries = match try({list-directory(dir-path)})
+    Ok(es) -> es
+    Error(exn) ->
+      eprintln("ls: cannot open directory '" ++ dir-path.string ++ "': " ++ exn.message)
+      return ([], set-exit-status(0, serious = False))
   val names   = entries.map fn(p)
     format-name(p.nodir.string, p.classify, opts)
-  // -a: show everything including . and ..
-  // -A: show dotfiles but exclude . and ..
-  // default: hide all dotfiles
   val visible = if opts.show-all then
                   val dot    = format-name(".",  FDirectory, opts)
                   val dotdot = format-name("..", FDirectory, opts)
                   Cons(dot, Cons(dotdot, names))
                 elif opts.almost-all then names
-                else names.filter(fn(n) !n.is-hidden)
-  val filtered = if opts.ignore-backups then visible.filter(fn(n) !n.is-backup)
+                else names.filter(fn(n) not(n.is-hidden))
+  val filtered = if opts.ignore-backups then visible.filter(fn(n) not(n.is-backup))
                  else visible
-  if opts.sort-none then filtered
-  elif opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
-  else filtered.sort(cmp)
+  val sorted = if opts.sort-none then filtered
+               elif opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
+               else filtered.sort(cmp)
+  (sorted, 0)
 
-pub fun list-dir(dir-path : path, opts : options, show-header : bool)
+pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
   if show-header then println(dir-path.string ++ ":")
-  val sorted = list-dir-names(dir-path, opts)
-  // Render output: -1 forces one-per-line, -C forces columns,
-  // otherwise columns if stdout is a tty, one-per-line if piped.
+  val (sorted, code) = list-dir-names(dir-path, opts)
   val use-columns = if opts.one-entry then False
                     elif opts.force-columns then True
                     else stdout-is-tty()
@@ -326,6 +325,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool)
     lines.foreach(fn(line) println(line))
   else
     sorted.foreach(fn(name) println(name))
+  code
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -337,7 +337,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool)
 val short-usage = "usage: ls [-aABCFprU1] [--help] [--version] [file ...]"
 
 fun main()
-  var status:= 0
+  var status := 0
   match get-args().parse-args
     HelpRequested -> show-help()
     VersionRequested -> show-version()
@@ -355,15 +355,27 @@ fun main()
         if err.is-empty then True
         else
           eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
-          status := set-exit-status(status, serious = True)
+          status := set-exit-status(status, serious = False)  // not serious → exit 1
           False
       val (dirs, files) = existing.partition(fn(t) is-directory(t))
-      // Print files first (no header), like GNU ls
-      files.foreach fn(f)
-        println(format-name(f.string, f.classify, opts))
-      // Then directories, with headers if multiple targets
-      val show-header = dirs.length > 1 || files.length > 0
-      dirs.foreach-indexed fn(i, dir-path)
-        if i > 0 || files.length > 0 then println("")
-        list-dir(dir-path, opts, show-header)
+      // Sort and print files first (no header), like GNU ls
+      val file-names = files.map(fn(f) format-name(f.path/string, f.classify, opts))
+      val sorted-file-names = if opts.sort-none then file-names
+                              elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
+                              else file-names.sort(cmp)
+      sorted-file-names.foreach(fn(name) println(name))
+      // Sort directories, then list each
+      // TODO: GNU ls sorts directory arguments alphabetically before listing.
+      // This requires a generic sort or a sort-paths helper since our sort
+      // only works on list<string> and dirs is list<path>.
+      val sorted-dirs = if opts.sort-none then dirs
+                        elif opts.reverse then dirs.reverse
+                        else dirs  // already in argument order, which is fine
+      val show-header = sorted-dirs.length > 1 || sorted-file-names.length > 0
+      sorted-dirs.foreach-indexed fn(i, dir-path)
+        if i > 0 || sorted-file-names.length > 0 then println("")
+        val code = list-dir(dir-path, opts, show-header)
+        if code > status then status := code
+
   exit(status)
+
