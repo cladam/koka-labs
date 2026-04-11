@@ -48,27 +48,27 @@ pub fun main() : io ()
   defaultKIntegrationHandler
     // Output assertions: verify expected entries appear
     itest("default listing contains README.md")
-      val entries = list-dir-names("." .path, Options())
+      val (entries, _) = list-dir-names("." .path, Options())
       assert/is-true(entries.any(fn(e) e == "README.md"))
 
     itest("default listing contains src")
-      val entries = list-dir-names("." .path, Options())
+      val (entries, _) = list-dir-names("." .path, Options())
       assert/is-true(entries.any(fn(e) e == "src"))
 
     itest("show-all listing contains .")
-      val entries = list-dir-names("." .path, Options(show-all = True))
+      val (entries, _) = list-dir-names("." .path, Options(show-all = True))
       assert/is-true(entries.any(fn(e) e == "."))
 
     itest("show-all listing contains ..")
-      val entries = list-dir-names("." .path, Options(show-all = True))
+      val (entries, _) = list-dir-names("." .path, Options(show-all = True))
       assert/is-true(entries.any(fn(e) e == ".."))
 
     itest("show-all listing contains README.md")
-      val entries = list-dir-names("." .path, Options(show-all = True))
+      val (entries, _) = list-dir-names("." .path, Options(show-all = True))
       assert/is-true(entries.any(fn(e) e == "README.md"))
 
     itest("reverse listing is in descending order")
-      val entries-r = list-dir-names("." .path, Options(reverse = True))
+      val (entries-r, _) = list-dir-names("." .path, Options(reverse = True))
       val first = entries-r.head.default("")
       val last  = entries-r.last.default("")
       assert/is-true(first > last)
@@ -77,11 +77,11 @@ pub fun main() : io ()
     itest("-B: default listing shows backup file")
       val backup-file = "tests/test-ls.kk~"
       create-test-file(backup-file, "backup content")
-      val entries = list-dir-names("tests".path, Options())
+      val (entries, _) = list-dir-names("tests".path, Options())
       assert/is-true(entries.any(fn(e) e == "test-ls.kk~"))
 
     itest("-B: ignore-backups hides backup file")
-      val entries = list-dir-names("tests".path, Options(ignore-backups = True))
+      val (entries, _) = list-dir-names("tests".path, Options(ignore-backups = True))
       assert/is-true(entries.all(fn(e) e != "test-ls.kk~"))
 
   // Unit tests for pure logic
