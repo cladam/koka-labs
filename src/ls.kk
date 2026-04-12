@@ -68,10 +68,10 @@ fun eprintln(msg : string) : fsys ()
 // - Exit 2: The user asked for something that doesn't exist or can't be accessed, 
 //   OR ls was invoked incorrectly. The user needs to fix their command.
 // ---------------------------------------------------------------------------
-pub extern exit( code : int ) : io ()
+pub extern exit(code: int) : io()
   c inline "exit(kk_integer_clamp32(#1, kk_context()))"
 
-fun set-exit-status(current : int, serious : bool) : int
+fun set-exit-status(current: int, serious: bool) : int
   val code = if serious then 2 else 1
   if current < code then code else current
 
@@ -84,7 +84,7 @@ pub struct options
   almost-all      : bool = False // -A
   ignore-backups  : bool = False // -B
   force-columns   : bool = False // -C
-  directories     : bool = False // -d
+  dir-only        : bool = False // -d
   fs-type         : bool = False // -F
   no-sort         : bool = False // -f
   slash-dir       : bool = False // -p
@@ -139,6 +139,7 @@ val usage = [
     "  -A, --almost-all       like -a, but do not list . and ..",
     "  -B, --ignore-backups   do not list implied entries ending with ~",
     "  -C                     list entries by columns",
+    "  -d, --directory        list directories themselves, not their contents",
     "  -F, --classify         append indicator (one of /@*=|) to entries",
     "  -f                     same as -a -U",
     "  -p, --slash-dir        append / indicator to directories",
@@ -190,6 +191,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(reverse = True), paths)
     Cons("--classify", rest) ->
       parse-args(rest, opts(fs-type = True), paths)
+    Cons("--directory", rest) ->
+      parse-args(rest, opts(dir-only = True), paths)
     Cons("--sort=none", rest) ->
       parse-args(rest, opts(sort-none = True), paths)
     // Unrecognised long options
@@ -202,14 +205,15 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
         match c
           'a' -> False
           'A' -> False
-          'r' -> False
-          'F' -> False
-          'f' -> False
-          'p' -> False
-          '1' -> False
-          'C' -> False
           'B' -> False
+          'C' -> False
+          'd' -> False
+          'f' -> False
+          'F' -> False
+          'p' -> False
+          'r' -> False
           'U' -> False
+          '1' -> False
           _   -> True
       match bad
         Cons(c, _) -> InvalidFlag(string(c))
@@ -218,16 +222,17 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
             match c
               'a' -> o(show-all = True, almost-all = False)
               'A' -> o(almost-all = True, show-all = False)
-              'r' -> o(reverse = True)
-              'F' -> o(fs-type = True)
+              'B' -> o(ignore-backups = True)
+              'C' -> o(force-columns = True, one-entry = False)
+              'd' -> o(dir-only = True)
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
               // Add those overrides here later
               'f' -> o(show-all = True, sort-none = True)
+              'F' -> o(fs-type = True)
               'p' -> o(slash-dir = True)
-              '1' -> o(one-entry = True, force-columns = False)
-              'C' -> o(force-columns = True, one-entry = False)
-              'B' -> o(ignore-backups = True)
+              'r' -> o(reverse = True)
               'U' -> o(sort-none = True)
+              '1' -> o(one-entry = True, force-columns = False)
               _   -> o
           parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
@@ -275,7 +280,7 @@ pub fun format-name(name : string, kind : file-kind, opts : options) : string
 
 // ---------------------------------------------------------------------------
 // Listing
-// list-directory returns full paths; we display only the basename, matching
+// list-directory returns full paths; only display the basename, matching
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
 pub fun list-dir-names(dir-path : path, opts : options)
@@ -343,16 +348,17 @@ fun main()
           eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
           status := set-exit-status(status, serious = False)  // not serious → exit 1
           False
-      val (dirs, files) = existing.partition(fn(t) is-directory(t))
+      val (dirs, files) = if opts.dir-only then ([], existing)
+                          else existing.partition(fn(t) is-directory(t))
       // Sort and print files first (no header), like GNU ls
-      val file-names = files.map(fn(f) format-name(f.path/string, f.classify, opts))
+      val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts))
       val sorted-file-names = if opts.sort-none then file-names
                               elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
                               else file-names.sort(cmp)
       sorted-file-names.foreach(fn(name) println(name))
       // Sort directories, then list each
       // TODO: GNU ls sorts directory arguments alphabetically before listing.
-      // This requires a generic sort or a sort-paths helper since our sort
+      // This requires a generic sort or a sort-paths helper since my sort
       // only works on list<string> and dirs is list<path>.
       val sorted-dirs = if opts.sort-none then dirs
                         elif opts.reverse then dirs.reverse

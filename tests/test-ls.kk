@@ -157,6 +157,18 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(hb)
 
+    test("parse-args -d enables dir-only")
+      val do = match parse-args(["-d"])
+        Parsed(opts, _) -> opts.dir-only
+        _ -> False
+      assert/is-true(do)
+
+    test("parse-args --directory enables dir-only")
+      val do = match parse-args(["--directory"])
+        Parsed(opts, _) -> opts.dir-only
+        _ -> False
+      assert/is-true(do)
+
     test("parse-args -r enables reverse")
       val rev = match parse-args(["-r"])
         Parsed(opts, _) -> opts.reverse
