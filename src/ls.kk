@@ -135,19 +135,19 @@ val usage = [
     "Usage: ls [OPTION]... [FILE]...",
     "List information about the FILEs (the current directory by default).",
     "",
-    "  -a, --all              do not ignore entries starting with .(includes . and ..)",
-    "  -A, --almost-all       like -a, but do not list . and ..",
-    "  -B, --ignore-backups   do not list implied entries ending with ~",
-    "  -C                     list entries by columns",
-    "  -d, --directory        list directories themselves, not their contents",
-    "  -F, --classify         append indicator (one of /@*=|) to entries",
-    "  -f                     same as -a -U",
-    "  -p, --slash-dir        append / indicator to directories",
-    "  -r, --reverse          reverse order while sorting",
-    "  -U, --sort=none        do not sort; list entries in directory order",
-    "  -1                     list one file per line",
-    "      --help             show this help and exit",
-    "      --version          show version and exit"
+    "  -a, --all                    do not ignore entries starting with .(includes . and ..)",
+    "  -A, --almost-all             like -a, but do not list . and ..",
+    "  -B, --ignore-backups         do not list implied entries ending with ~",
+    "  -C                           list entries by columns",
+    "  -d, --directory              list directories themselves, not their contents",
+    "  -F, --classify               append indicator (one of /@*=|) to entries",
+    "  -f                           same as -a -U",
+    "  -p, --indicator-style=slash  append / indicator to directories",
+    "  -r, --reverse                reverse order while sorting",
+    "  -U, --sort=none              do not sort; list entries in directory order",
+    "  -1                           list one file per line",
+    "      --help                   show this help and exit",
+    "      --version                show version and exit"
 ].join("\n")
 
 fun show-help() : io ()
@@ -195,6 +195,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(dir-only = True), paths)
     Cons("--sort=none", rest) ->
       parse-args(rest, opts(sort-none = True), paths)
+    Cons("--indicator-style=slash", rest) -> 
+      parse-args(rest, opts(slash-dir = True), paths)
     // Unrecognised long options
     Cons(arg, _) | arg.starts-with("--").bool ->
       InvalidFlag(arg)
@@ -325,7 +327,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCfFprU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABCfFdprU1] [--help] [--version] [file ...]"
 
 fun main()
   var status := 0
