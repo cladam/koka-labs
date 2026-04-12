@@ -80,7 +80,7 @@ xattr -d com.apple.quarantine koka-ls
 - [x] `-a, --all` — in directories, do not ignore names starting with `.`
 - [x] `-A, --almost-all` — like `-a`, but ignore `.` and `..`
 - [x] `-B, --ignore-backups` — ignore entries ending with `~`
-- [d] `-d, --directory` — list directories themselves, not their contents
+- [x] `-d, --directory` — list directories themselves, not their contents
 - [ ] `-H, --dereference-command-line` — follow symlinks listed on the command line
 - [ ] `--dereference-command-line-symlink-to-dir` — follow command-line symlinks that point to directories
 - [ ] `--hide=PATTERN` — hide matching entries (overridden by `-a`/`-A`)
