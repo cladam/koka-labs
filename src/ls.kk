@@ -296,7 +296,7 @@ fun insert(x : string, xs : list<string>, cmp : (string, string) -> order) : lis
       Gt -> Cons(y, insert(x, ys, cmp))
       _  -> Cons(x, xs)
 
-fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
+pub fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
   match xs
     Nil -> Nil
     Cons(x, rest) -> insert(x, rest.sort(cmp), cmp)

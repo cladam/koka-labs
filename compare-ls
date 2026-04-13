@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-name="test-ls"
+name="compare-ls"
 source="tests/${name}.kk"
 
 if [ ! -f "$source" ]; then
@@ -20,5 +20,5 @@ if [ -z "$binary" ]; then
   exit 1
 fi
 
-# Run all tests
+# Run all comparison tests
 exec "./${binary}"
