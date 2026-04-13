@@ -23,14 +23,13 @@ cd koka-labs
 ./exec-ls ls              # build and run ls (debug)
 ./exec-ls ls /tmp         # with arguments
 ./exec-ls ls -ar /tmp     # with flags
-./exec-ls -O ls           # optimised build
 
 # Build and produce a binary
-koka -O2 src/ls.kk 2>&1 | tee build.log
-BINARY=$(grep '^created :' build.log | awk '{print $3}')
-cp "$BINARY" koka-ls
+koka src/ls.kk -o koka-ls
 chmod +x koka-ls
 ```
+
+> **Note:** Optimised builds (`koka -O1`/`-O2`) currently segfault due to a Koka compiler bug in `kk_cctx_copy` when stacking effect handlers. Use debug builds for now.
 
 ### From built binary
 ```bash

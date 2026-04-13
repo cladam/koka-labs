@@ -82,7 +82,7 @@ pub effect exit
   ctl exit( exitcode : int ) : a
 
 pub fun status( action : () -> <exit|e> a ) : e int
-  with final ctl exit(code) code                    // use `final` since we never resume
+  with final ctl exit(code) code // use `final` since we never resume
   action()
   0
 
@@ -91,16 +91,12 @@ pub fun status( action : () -> <exit|e> a ) : e int
 //  Shows output state (writer monad)
 // ---------------------------------------------------------------------------
 
- 
 //  echoln would be println but routed through the bio effect instead of the console. 
 //  It's the same interface but now the implementation is pluggable:
 //  Production: with fun write(fd, s) print(s) → prints to real stdout (same as println)
 //  Testing: with bio → captures to a string buffer 
 //
 //  It's an interesting concept. I found the pattern in the unix.kk sample.
-//  I might refactor to this later, keeping println for now
-
-
 pub effect bio
   fun write( fd : filedesc, s : string ) : ()
 
@@ -418,4 +414,3 @@ fun main()
           if dir-code > exit-code then exit-code := dir-code
     if exit-code > 0 then exit(exit-code)
   process-exit(code)
-

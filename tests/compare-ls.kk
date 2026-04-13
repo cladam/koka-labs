@@ -58,42 +58,42 @@ pub fun main() : io ()
   println("")
 
   defaultKIntegrationHandler
-    itest("default listing matches GNU ls -1")
+    itest("default listing (-1) matches GNU ls -1")
       val gnu    = run-gnu-ls("-1", ".")
       val koka   = run-koka-ls(".".path, Options(one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-a matches GNU ls -1a")
+    itest("-1a matches GNU ls -1a")
       val gnu    = run-gnu-ls("-1a", ".")
       val koka   = run-koka-ls(".".path, Options(show-all = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-A matches GNU ls -1A")
+    itest("-1A matches GNU ls -1A")
       val gnu    = run-gnu-ls("-1A", ".")
       val koka   = run-koka-ls(".".path, Options(almost-all = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-r matches GNU ls -1r")
+    itest("-1r matches GNU ls -1r")
       val gnu    = run-gnu-ls("-1r", ".")
       val koka   = run-koka-ls(".".path, Options(reverse = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-F matches GNU ls -1F")
+    itest("-1F matches GNU ls -1F")
       val gnu    = run-gnu-ls("-1F", ".")
       val koka   = run-koka-ls(".".path, Options(fs-type = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-p matches GNU ls -1p")
+    itest("-1p matches GNU ls -1p")
       val gnu    = run-gnu-ls("-1p", ".")
       val koka   = run-koka-ls(".".path, Options(slash-dir = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-B matches GNU ls -1B")
+    itest("-1B matches GNU ls -1B")
       val gnu    = run-gnu-ls("-1B", ".")
       val koka   = run-koka-ls(".".path, Options(ignore-backups = True, one-entry = True))
       assert/is-true(gnu == koka)
 
-    itest("-U unsorted has same entries as GNU ls -1U")
+    itest("-1U unsorted has same entries as GNU ls -1U")
       // GNU ls -U is directory order which may differ, so compare as sets
       val gnu    = run-gnu-ls("-1U", ".").split("\n").sort(string/cmp)
       val koka   = run-koka-ls(".".path, Options(sort-none = True, one-entry = True)).split("\n").sort(string/cmp)
