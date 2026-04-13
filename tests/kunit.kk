@@ -1,5 +1,5 @@
 /*
- * assert.kk — lightweight xUnit-style test framework for Koka
+ * kunit.kk — lightweight xUnit-style test framework for Koka
  * Inspired by KUnit - https://github.com/koka-community/kunit Thanks!
  * Copyright (C) 2026 Claes Adamsson <claes.adamsson@gmail.com>
  * 

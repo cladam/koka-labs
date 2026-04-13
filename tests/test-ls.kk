@@ -25,7 +25,7 @@ import std/os/file
 import std/os/dir
 import std/os/env
 import src/ls
-import assert
+import kunit
 
 // A helper to ensure a file exists with specific content
 fun create-test-file(name : string, content : string = "") : <fsys,exn> () {

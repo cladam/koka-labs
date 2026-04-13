@@ -20,10 +20,10 @@ cd koka-labs
 
 ### From source
 ```bash
-./exec ls              # build and run ls (debug)
-./exec ls /tmp         # with arguments
-./exec ls -ar /tmp     # with flags
-./exec -O ls           # optimised build
+./exec-ls ls              # build and run ls (debug)
+./exec-ls ls /tmp         # with arguments
+./exec-ls ls -ar /tmp     # with flags
+./exec-ls -O ls           # optimised build
 
 # Build and produce a binary
 koka -O2 src/ls.kk 2>&1 | tee build.log
@@ -46,6 +46,19 @@ macOS Gatekeeper quarantines binaries downloaded from the internet. After downlo
 ```bash
 xattr -d com.apple.quarantine koka-ls
 ```
+
+### Testing
+
+I am testing koka-ls with both integration and unit tests, see [tests/test-ls.kk](tests/test-ls.kk).
+Integration tests use the `bio` effect to capture `list-dir` output into a string buffer instead of printing to stdout, making output assertions straightforward.
+
+Run all tests with the helper script:
+```bash
+./test-ls
+```
+
+The testing framework is inspired by [KUnit](https://github.com/koka-community/kunit) and extended for my needs.
+See [tests/kunit.kk](tests/kunit.kk).
 
 ---
 
