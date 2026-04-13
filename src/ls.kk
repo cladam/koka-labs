@@ -68,12 +68,56 @@ fun eprintln(msg : string) : fsys ()
 // - Exit 2: The user asked for something that doesn't exist or can't be accessed, 
 //   OR ls was invoked incorrectly. The user needs to fix their command.
 // ---------------------------------------------------------------------------
-pub extern exit(code: int) : io()
+extern process-exit(code: int) : io()
   c inline "exit(kk_integer_clamp32(#1, kk_context()))"
 
 fun set-exit-status(current: int, serious: bool) : int
   val code = if serious then 2 else 1
   if current < code then code else current
+
+// ---------------------------------------------------------------------------
+//  Show non-linear control by exiting a computation. (exception monad)
+// ---------------------------------------------------------------------------
+pub effect exit
+  ctl exit( exitcode : int ) : a
+
+pub fun status( action : () -> <exit|e> a ) : e int
+  with final ctl exit(code) code                    // use `final` since we never resume
+  action()
+  0
+
+// ---------------------------------------------------------------------------
+//  Basic I/O
+//  Shows output state (writer monad)
+// ---------------------------------------------------------------------------
+
+ 
+//  echoln would be println but routed through the bio effect instead of the console. 
+//  It's the same interface but now the implementation is pluggable:
+//  Production: with fun write(fd, s) print(s) → prints to real stdout (same as println)
+//  Testing: with bio → captures to a string buffer 
+//
+//  It's an interesting concept. I found the pattern in the unix.kk sample.
+//  I might refactor to this later, keeping println for now
+
+
+pub effect bio
+  fun write( fd : filedesc, s : string ) : ()
+
+pub alias filedesc = int
+pub val stdout = 0
+
+pub fun echo( s : string ) : bio ()
+  write(stdout,s)
+
+pub fun echoln( s : string ) : bio ()
+  write(stdout, s ++ "\n")
+
+pub fun bio( action : () -> <bio|e> a) : e (a,string)
+  var buf := ""
+  with return(x) (x,buf)
+  with fun write(fd,s) buf := buf ++ s
+  action()
 
 // ---------------------------------------------------------------------------
 // Options — will grow as I add flags like -l, -R, -t, etc.
@@ -150,15 +194,15 @@ val usage = [
     "      --version                show version and exit"
 ].join("\n")
 
-fun show-help() : io ()
-  println(usage)
+fun show-help() : bio ()
+  echoln(usage)
 
-fun show-version() : io ()
+fun show-version() : bio ()
   val program = "koka-ls - directory listing (GNU ls clone in Koka)"
-  println(program-name  ++ "@" ++ version)
-  println("Program: " ++ program)
-  println("Author: " ++ author)
-  println("Repository: " ++ repository)
+  echoln(program-name  ++ "@" ++ version)
+  echoln("Program: " ++ program)
+  echoln("Author: " ++ author)
+  echoln("Repository: " ++ repository)
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -307,7 +351,7 @@ pub fun list-dir-names(dir-path : path, opts : options)
   (sorted, 0)
 
 pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
-  if show-header then println(dir-path.string ++ ":")
+  if show-header then echoln(dir-path.string ++ ":")
   val (sorted, code) = list-dir-names(dir-path, opts)
   val use-columns = if opts.one-entry then False
                     elif opts.force-columns then True
@@ -315,9 +359,9 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
   if use-columns then
     val width = terminal-width()
     val lines = render-column-major(sorted, width)
-    lines.foreach(fn(line) println(line))
+    lines.foreach(fn(line) echoln(line))
   else
-    sorted.foreach(fn(name) println(name))
+    sorted.foreach(fn(name) echoln(name))
   code
 
 // ---------------------------------------------------------------------------
@@ -330,46 +374,48 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
 val short-usage = "usage: ls [-aABCfFdprU1] [--help] [--version] [file ...]"
 
 fun main()
-  var status := 0
-  match get-args().parse-args
-    HelpRequested -> show-help()
-    VersionRequested -> show-version()
-    InvalidFlag(flag) ->
-      eprintln("ls: invalid option -- " ++ flag)
-      eprintln(short-usage)
-      exit(2)
-    Parsed(opts, paths) ->
-      val targets = match paths
-        Nil -> [".".path]
-        _   -> paths.map(fn(p) p.path)
-      // Report inaccessible paths to stderr, like GNU ls
-      val existing = targets.filter fn(t)
-        val err = stat-error(t.string)
-        if err.is-empty then True
-        else
-          eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
-          status := set-exit-status(status, serious = False)  // not serious → exit 1
-          False
-      val (dirs, files) = if opts.dir-only then ([], existing)
-                          else existing.partition(fn(t) is-directory(t))
-      // Sort and print files first (no header), like GNU ls
-      val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts))
-      val sorted-file-names = if opts.sort-none then file-names
-                              elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
-                              else file-names.sort(cmp)
-      sorted-file-names.foreach(fn(name) println(name))
-      // Sort directories, then list each
-      // TODO: GNU ls sorts directory arguments alphabetically before listing.
-      // This requires a generic sort or a sort-paths helper since my sort
-      // only works on list<string> and dirs is list<path>.
-      val sorted-dirs = if opts.sort-none then dirs
-                        elif opts.reverse then dirs.reverse
-                        else dirs  // already in argument order, which is fine
-      val show-header = sorted-dirs.length > 1 || sorted-file-names.length > 0
-      sorted-dirs.foreach-indexed fn(i, dir-path)
-        if i > 0 || sorted-file-names.length > 0 then println("")
-        val code = list-dir(dir-path, opts, show-header)
-        if code > status then status := code
-
-  exit(status)
+  val code = status
+    with fun write(fd, s) print(s)    // bio handler: route to real stdout
+    var exit-code := 0
+    match get-args().parse-args
+      HelpRequested -> show-help()
+      VersionRequested -> show-version()
+      InvalidFlag(flag) ->
+        eprintln("ls: invalid option -- " ++ flag)
+        eprintln(short-usage)
+        exit(2)
+      Parsed(opts, paths) ->
+        val targets = match paths
+          Nil -> [".".path]
+          _   -> paths.map(fn(p) p.path)
+        // Report inaccessible paths to stderr, like GNU ls
+        val existing = targets.filter fn(t)
+          val err = stat-error(t.string)
+          if err.is-empty then True
+          else
+            eprintln("ls: cannot access '" ++ t.string ++ "': " ++ err)
+            exit-code := set-exit-status(exit-code, serious = False)  // not serious → exit 1
+            False
+        val (dirs, files) = if opts.dir-only then ([], existing)
+                            else existing.partition(fn(t) is-directory(t))
+        // Sort and print files first (no header), like GNU ls
+        val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts))
+        val sorted-file-names = if opts.sort-none then file-names
+                                elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
+                                else file-names.sort(cmp)
+        sorted-file-names.foreach(fn(name) echoln(name))
+        // Sort directories, then list each
+        // TODO: GNU ls sorts directory arguments alphabetically before listing.
+        // This requires a generic sort or a sort-paths helper since my sort
+        // only works on list<string> and dirs is list<path>.
+        val sorted-dirs = if opts.sort-none then dirs
+                          elif opts.reverse then dirs.reverse
+                          else dirs  // already in argument order, which is fine
+        val show-header = sorted-dirs.length > 1 || sorted-file-names.length > 0
+        sorted-dirs.foreach-indexed fn(i, dir-path)
+          if i > 0 || sorted-file-names.length > 0 then echoln("")
+          val dir-code = list-dir(dir-path, opts, show-header)
+          if dir-code > exit-code then exit-code := dir-code
+    if exit-code > 0 then exit(exit-code)
+  process-exit(code)
 

@@ -37,15 +37,31 @@ pub fun main() : io ()
   // Smoke tests: verify list-dir doesn't crash with various options
   println(bold("Running smoke tests..."))
 
+  with fun write(fd, s) print(s)    // bio handler: route to real stdout
   list-dir("." .path, Options(), False)
   list-dir("." .path, Options(show-all = True), False)
   list-dir("." .path, Options(almost-all = True), False)
   list-dir("." .path, Options(reverse = True), False)
 
+  // Use bio effect to capture list-dir output into a string
+  fun captured-list-dir(dir : path, opts : options)
+    with bio
+    with status
+    list-dir(dir, opts, False)
+
   // Integration tests
   println("") // Empty line for better output
   println(bold("Running integration tests..."))
   defaultKIntegrationHandler
+    itest("bio: captured output contains README.md")
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True))
+      assert/is-true(code == 0)
+      assert/is-true(output.contains("README.md"))
+
+    itest("bio: captured output contains src")
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True))
+      assert/is-true(code == 0)
+      assert/is-true(output.contains("src"))
     // Output assertions: verify expected entries appear
     itest("default listing contains README.md")
       val (entries, _) = list-dir-names("." .path, Options())
