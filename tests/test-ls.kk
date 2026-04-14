@@ -197,9 +197,9 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(ns)
 
-    test("parse-args -F enables fs-type")
+    test("parse-args -F enables classify")
       val ft = match parse-args(["-F"])
-        Parsed(opts, _) -> opts.fs-type
+        Parsed(opts, _) -> opts.classify.is-classifyAlways
         _ -> False
       assert/is-true(ft)
 
@@ -235,7 +235,7 @@ pub fun main() : io ()
         Parsed(opts, _) -> opts.reverse
         _ -> False
       val ft = match parse-args(["-arF"])
-        Parsed(opts, _) -> opts.fs-type
+        Parsed(opts, _) -> opts.classify.is-classifyAlways
         _ -> False
       assert/is-true(sa)
       assert/is-true(rev)
@@ -295,19 +295,19 @@ pub fun main() : io ()
 
     // --- format-name with -F ---
     test("format-name appends / for directories with -F")
-      val name = format-name("src", FDirectory, Options(fs-type = True))
+      val name = format-name("src", FDirectory, Options(classify = ClassifyAlways))
       assert/is-true(name == "src/")
 
     test("format-name appends * for executables with -F")
-      val name = format-name("run", FExecutable, Options(fs-type = True))
+      val name = format-name("run", FExecutable, Options(classify = ClassifyAlways))
       assert/is-true(name == "run*")
 
     test("format-name appends @ for symlinks with -F")
-      val name = format-name("link", FSymlink, Options(fs-type = True))
+      val name = format-name("link", FSymlink, Options(classify = ClassifyAlways))
       assert/is-true(name == "link@")
 
     test("format-name should not append suffix for regular files with -F")
-      val name = format-name("file.txt", FRegular, Options(fs-type = True))
+      val name = format-name("file.txt", FRegular, Options(classify = ClassifyAlways))
       assert/is-true(name == "file.txt")
 
     test("format-name with -p should not append / for non-dirs")

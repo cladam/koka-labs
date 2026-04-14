@@ -85,7 +85,17 @@ pub fun main() : io ()
 
     itest("-1F matches GNU ls -1F")
       val gnu    = run-gnu-ls("-1F", ".")
-      val koka   = run-koka-ls(".".path, Options(fs-type = True, one-entry = True))
+      val koka   = run-koka-ls("." .path, Options(classify = ClassifyAlways, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --classify=always matches GNU ls -1 --classify=always")
+      val gnu    = run-gnu-ls("-1 --classify=always", ".")
+      val koka   = run-koka-ls(".".path, Options(classify = ClassifyAlways, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --classify=never matches GNU ls -1 --classify=never")
+      val gnu    = run-gnu-ls("-1 --classify=never", ".")
+      val koka   = run-koka-ls(".".path, Options(classify = ClassifyNever, one-entry = True))
       assert/is-true(gnu == koka)
 
     itest("-1p matches GNU ls -1p")

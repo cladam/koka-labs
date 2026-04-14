@@ -122,13 +122,30 @@ pub fun bio( action : () -> <bio|e> a) : e (a,string)
 // Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
+pub type classify-when
+  ClassifyAlways
+  ClassifyAuto
+  ClassifyNever
+
+fun parse-classify-when(s : string) : maybe<classify-when>
+  match s
+    "always" -> Just(ClassifyAlways)
+    "yes"    -> Just(ClassifyAlways)
+    "force"  -> Just(ClassifyAlways)
+    "auto"   -> Just(ClassifyAuto)
+    "tty"    -> Just(ClassifyAuto)
+    "never"  -> Just(ClassifyNever)
+    "no"     -> Just(ClassifyNever)
+    "none"   -> Just(ClassifyNever)
+    _        -> Nothing
+
 pub struct options
   show-all        : bool = False // -a
   almost-all      : bool = False // -A
   ignore-backups  : bool = False // -B
   force-columns   : bool = False // -C
   dir-only        : bool = False // -d
-  fs-type         : bool = False // -F
+  classify        : classify-when = ClassifyNever // -F, --classify[=WHEN]
   no-sort         : bool = False // -f
   hide-patterns   : list<string> = [] // --hide
   ignore-patterns : list<string> = [] // -I
@@ -185,7 +202,7 @@ val usage = [
     "  -B, --ignore-backups         do not list implied entries ending with ~",
     "  -C                           list entries by columns",
     "  -d, --directory              list directories themselves, not their contents",
-    "  -F, --classify               append indicator (one of /@*=|) to entries",
+    "  -F, --classify[=WHEN]        append indicator (one of */=>@|) to entries WHEN",
     "  -f                           same as -a -U",
     "  --hide=PATTERN               do not list implied entries matching shell PATTERN",
     "                               (overridden by -a or -A)",
@@ -238,7 +255,12 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons("--reverse", rest) ->
       parse-args(rest, opts(reverse = True), paths)
     Cons("--classify", rest) ->
-      parse-args(rest, opts(fs-type = True), paths)
+      parse-args(rest, opts(classify = ClassifyAlways), paths)
+    Cons(arg, rest) | arg.starts-with("--classify=").bool ->
+      val when-str = arg.slice.drop(11).string
+      match parse-classify-when(when-str)
+        Just(cw) -> parse-args(rest, opts(classify = cw), paths)
+        Nothing  -> InvalidFlag("--classify=" ++ when-str)
     Cons("--directory", rest) ->
       parse-args(rest, opts(dir-only = True), paths)
     Cons("--sort=none", rest) ->
@@ -286,7 +308,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
               // Add those overrides here later
               'f' -> o(show-all = True, sort-none = True)
-              'F' -> o(fs-type = True)
+              'F' -> o(classify = ClassifyAlways)
               'p' -> o(slash-dir = True)
               'r' -> o(reverse = True)
               'U' -> o(sort-none = True)
@@ -334,8 +356,12 @@ pub fun is-backup(name : string) : bool
   name.ends-with("~").bool
 
 // Format a single entry name with optional -F / -p suffix
-pub fun format-name(name : string, kind : file-kind, opts : options) : string
-  if opts.fs-type then name ++ kind.suffix
+pub fun format-name(name : string, kind : file-kind, opts : options, is-tty : bool = True) : string
+  val do-classify = match opts.classify
+    ClassifyAlways -> True
+    ClassifyAuto   -> is-tty
+    ClassifyNever  -> False
+  if do-classify then name ++ kind.suffix
   elif opts.slash-dir then match kind
     FDirectory -> name ++ "/"
     _          -> name
@@ -350,17 +376,17 @@ pub fun matches-any(name: string, patterns: list<string>): bool
 // list-directory returns full paths; only display the basename, matching
 // how GNU ls shows just the name within the listed directory.
 // ---------------------------------------------------------------------------
-pub fun list-dir-names(dir-path : path, opts : options)
+pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
   val entries = match try({list-directory(dir-path)})
     Ok(es) -> es
     Error(exn) ->
       eprintln("ls: cannot open directory '" ++ dir-path.string ++ "': " ++ exn.message)
       return ([], set-exit-status(0, serious = False))
   val names   = entries.map fn(p)
-    format-name(p.nodir.string, p.classify, opts)
+    format-name(p.nodir.string, p.classify, opts, is-tty)
   val visible = if opts.show-all then
-                  val dot    = format-name(".",  FDirectory, opts)
-                  val dotdot = format-name("..", FDirectory, opts)
+                  val dot    = format-name(".",  FDirectory, opts, is-tty)
+                  val dotdot = format-name("..", FDirectory, opts, is-tty)
                   Cons(dot, Cons(dotdot, names))
                 elif opts.almost-all then names
                 else names.filter(fn(n) not(n.is-hidden))
@@ -380,10 +406,11 @@ pub fun list-dir-names(dir-path : path, opts : options)
 
 pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
   if show-header then echoln(dir-path.string ++ ":")
-  val (sorted, code) = list-dir-names(dir-path, opts)
+  val tty = stdout-is-tty()
+  val (sorted, code) = list-dir-names(dir-path, opts, tty)
   val use-columns = if opts.one-entry then False
                     elif opts.force-columns then True
-                    else stdout-is-tty()
+                    else tty
   if use-columns then
     val width = terminal-width()
     val lines = render-column-major(sorted, width)
@@ -427,7 +454,8 @@ fun main()
         val (dirs, files) = if opts.dir-only then ([], existing)
                             else existing.partition(fn(t) is-directory(t))
         // Sort and print files first (no header), like GNU ls
-        val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts))
+        val tty = stdout-is-tty()
+        val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts, tty))
         val sorted-file-names = if opts.sort-none then file-names
                                 elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
                                 else file-names.sort(cmp)
