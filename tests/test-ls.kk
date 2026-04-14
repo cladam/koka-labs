@@ -203,6 +203,30 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(ft)
 
+    test("parse-args -I without pattern returns InvalidFlag")
+      val invalid = match parse-args(["-I"])
+        InvalidFlag(_) -> True
+        _ -> False
+      assert/is-true(invalid)
+
+    test("parse-args -I with pattern stores it in ignore-patterns")
+      val pats = match parse-args(["-I", "*.txt"])
+        Parsed(opts, _) -> opts.ignore-patterns
+        _ -> []
+      assert/is-true(pats.show == ["*.txt"].show)
+
+    test("parse-args --ignore=PATTERN stores pattern")
+      val pats = match parse-args(["--ignore=*.md"])
+        Parsed(opts, _) -> opts.ignore-patterns
+        _ -> []
+      assert/is-true(pats.show == ["*.md"].show)
+
+    test("parse-args --hide=PATTERN stores pattern")
+      val pats = match parse-args(["--hide=*.log"])
+        Parsed(opts, _) -> opts.hide-patterns
+        _ -> []
+      assert/is-true(pats.show == ["*.log"].show)
+
     test("parse-args combined flags -arF")
       val sa = match parse-args(["-arF"])
         Parsed(opts, _) -> opts.show-all

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 name="compare-ls"
+ls_binary="${1:-gls}" # gls on my mac
 source="tests/${name}.kk"
 
 if [ ! -f "$source" ]; then
@@ -10,7 +11,7 @@ if [ ! -f "$source" ]; then
 fi
 
 # Build and capture output; only show it on failure
-build_output=$(koka -O "$source" 2>&1)
+build_output=$(koka "$source" 2>&1)
 
 binary=$(echo "$build_output" | grep "^created :" | awk '{print $3}')
 
@@ -20,5 +21,5 @@ if [ -z "$binary" ]; then
   exit 1
 fi
 
-# Run all comparison tests
-exec "./${binary}"
+# Run all tests
+exec "./${binary}" "$ls_binary"

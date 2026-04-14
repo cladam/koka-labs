@@ -54,6 +54,9 @@ extern stdout-is-tty() : fsys bool
 extern stat-error(p : string) : fsys string
   c "kk_os_stat_error"
 
+extern fnmatch(pattern: string, name: string): bool
+  c "kk_os_fnmatch"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
@@ -127,6 +130,8 @@ pub struct options
   dir-only        : bool = False // -d
   fs-type         : bool = False // -F
   no-sort         : bool = False // -f
+  hide-patterns   : list<string> = [] // --hide
+  ignore-patterns : list<string> = [] // -I
   slash-dir       : bool = False // -p
   reverse         : bool = False // -r
   sort-none       : bool = False // -U
@@ -182,6 +187,9 @@ val usage = [
     "  -d, --directory              list directories themselves, not their contents",
     "  -F, --classify               append indicator (one of /@*=|) to entries",
     "  -f                           same as -a -U",
+    "  --hide=PATTERN               do not list implied entries matching shell PATTERN",
+    "                               (overridden by -a or -A)",
+    "  -I, --ignore=PATTERN         do not list entries matching shell PATTERN",
     "  -p, --indicator-style=slash  append / indicator to directories",
     "  -r, --reverse                reverse order while sorting",
     "  -U, --sort=none              do not sort; list entries in directory order",
@@ -237,12 +245,19 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(sort-none = True), paths)
     Cons("--indicator-style=slash", rest) -> 
       parse-args(rest, opts(slash-dir = True), paths)
+    Cons(arg, rest) | arg.starts-with("--hide=").bool ->
+      val pat = arg.slice.drop(7).string
+      parse-args(rest, opts(hide-patterns = Cons(pat, opts.hide-patterns)), paths)
+    Cons(arg, rest) | arg.starts-with("--ignore=").bool ->
+      val pat = arg.slice.drop(9).string
+      parse-args(rest, opts(ignore-patterns = Cons(pat, opts.ignore-patterns)), paths)
     // Unrecognised long options
     Cons(arg, _) | arg.starts-with("--").bool ->
       InvalidFlag(arg)
     // Short flags — can be combined like -ar, -ra, etc.
     Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
       val chars = arg.slice.drop(1).string.list
+      val has-I = chars.any(fn(c) c == 'I')
       val bad = chars.filter fn(c)
         match c
           'a' -> False
@@ -252,6 +267,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'd' -> False
           'f' -> False
           'F' -> False
+          'I' -> False
           'p' -> False
           'r' -> False
           'U' -> False
@@ -260,7 +276,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       match bad
         Cons(c, _) -> InvalidFlag(string(c))
         Nil ->
-          val new-opts = chars.foldl(opts) fn(o, c)
+          val new-opts = chars.filter(fn(c) c != 'I').foldl(opts) fn(o, c)
             match c
               'a' -> o(show-all = True, almost-all = False)
               'A' -> o(almost-all = True, show-all = False)
@@ -276,7 +292,13 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'U' -> o(sort-none = True)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
-          parse-args(rest, new-opts, paths)
+          if has-I then
+            match rest
+              Cons(pat, rest2) ->
+                parse-args(rest2, new-opts(ignore-patterns = Cons(pat, new-opts.ignore-patterns)), paths)
+              Nil -> InvalidFlag("-I (missing pattern)")
+          else
+            parse-args(rest, new-opts, paths)
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
 
 // ---------------------------------------------------------------------------
@@ -320,6 +342,9 @@ pub fun format-name(name : string, kind : file-kind, opts : options) : string
   // Swallow -C for columns as it is default, but -1 overrides it, so we don't need to check that here
   else name
 
+pub fun matches-any(name: string, patterns: list<string>): bool
+  patterns.any(fn(p) fnmatch(p, name))
+
 // ---------------------------------------------------------------------------
 // Listing
 // list-directory returns full paths; only display the basename, matching
@@ -341,9 +366,16 @@ pub fun list-dir-names(dir-path : path, opts : options)
                 else names.filter(fn(n) not(n.is-hidden))
   val filtered = if opts.ignore-backups then visible.filter(fn(n) not(n.is-backup))
                  else visible
-  val sorted = if opts.sort-none then filtered
-               elif opts.reverse then filtered.sort(fn(a, b) cmp(b, a))
-               else filtered.sort(cmp)
+  val unhidden = match opts.hide-patterns
+    Nil -> filtered
+    pats | opts.show-all || opts.almost-all -> filtered
+    pats -> filtered.filter(fn(n) not(n.matches-any(pats)))
+  val ignored  = match opts.ignore-patterns
+    Nil -> unhidden
+    pats -> unhidden.filter(fn(n) not(n.matches-any(pats)))
+  val sorted = if opts.sort-none then ignored
+               elif opts.reverse then ignored.sort(fn(a, b) cmp(b, a))
+               else ignored.sort(cmp)
   (sorted, 0)
 
 pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
@@ -367,7 +399,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCfFdprU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABCfFdIprU1] [--help] [--version] [file ...]"
 
 fun main()
   val code = status

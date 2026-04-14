@@ -22,6 +22,7 @@
 */
 
 import std/os/path
+import std/os/env
 import std/os/process
 import src/ls
 import kunit
@@ -31,11 +32,15 @@ import kunit
 // ---------------------------------------------------------------------------
 
 // GNU ls binary — on macOS via Homebrew it's `gls`
-val gnu-ls = "gls"
+fun get-gnu-ls() : io string
+  match get-args()
+    Cons(bin, _) -> bin
+    _            -> "gls"  // fallback default
 
 // Run GNU ls with flags and a directory, return trimmed stdout
 fun run-gnu-ls(flags : string, dir : string) : io string
-  val cmd = gnu-ls ++ " " ++ flags ++ " " ++ dir
+  val bin = get-gnu-ls()
+  val cmd = bin ++ " " ++ flags ++ " " ++ dir
   match run-system-read(cmd)
     Ok(output) -> output.trim
     Error(exn) -> exn.message
@@ -54,7 +59,7 @@ fun run-koka-ls(dir : path, opts : options) : _ string
 // ---------------------------------------------------------------------------
 
 pub fun main() : io ()
-  println(bold("Comparing koka-ls output to " ++ gnu-ls ++ "..."))
+  println(bold("Comparing koka-ls output to GNU ls..."))
   println("")
 
   defaultKIntegrationHandler
@@ -91,6 +96,38 @@ pub fun main() : io ()
     itest("-1B matches GNU ls -1B")
       val gnu    = run-gnu-ls("-1B", ".")
       val koka   = run-koka-ls(".".path, Options(ignore-backups = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    // compare --ignore
+    itest("-1 --ignore='*.md' matches GNU ls")
+      val gnu  = run-gnu-ls("-1 --ignore='*.md'", ".")
+      val koka = run-koka-ls(".".path, Options(ignore-patterns = ["*.md"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --ignore='*.md' --ignore='test*' matches GNU ls")
+      val gnu  = run-gnu-ls("-1 --ignore='*.md' --ignore='test*'", ".")
+      val koka = run-koka-ls(".".path, Options(ignore-patterns = ["*.md", "test*"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1a --ignore='*.md' still ignores with -a")
+      val gnu  = run-gnu-ls("-1a --ignore='*.md'", ".")
+      val koka = run-koka-ls(".".path, Options(show-all = True, ignore-patterns = ["*.md"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    // compare --hide
+    itest("-1 --hide='*.md' matches GNU ls")
+      val gnu  = run-gnu-ls("-1 --hide='*.md'", ".")
+      val koka = run-koka-ls(".".path, Options(hide-patterns = ["*.md"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1a --hide='*.md' shows .md files (hide overridden by -a)")
+      val gnu  = run-gnu-ls("-1a --hide='*.md'", ".")
+      val koka = run-koka-ls(".".path, Options(show-all = True, hide-patterns = ["*.md"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1A --hide='*.md' shows .md files (hide overridden by -A)")
+      val gnu  = run-gnu-ls("-1A --hide='*.md'", ".")
+      val koka = run-koka-ls(".".path, Options(almost-all = True, hide-patterns = ["*.md"], one-entry = True))
       assert/is-true(gnu == koka)
 
     itest("-1U unsorted has same entries as GNU ls -1U")
