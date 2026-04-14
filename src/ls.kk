@@ -368,7 +368,7 @@ pub fun list-dir-names(dir-path : path, opts : options)
                  else visible
   val unhidden = match opts.hide-patterns
     Nil -> filtered
-    pats | opts.show-all || opts.almost-all -> filtered
+    _pats | opts.show-all || opts.almost-all -> filtered
     pats -> filtered.filter(fn(n) not(n.matches-any(pats)))
   val ignored  = match opts.ignore-patterns
     Nil -> unhidden
