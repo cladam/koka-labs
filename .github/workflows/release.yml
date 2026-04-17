@@ -57,11 +57,19 @@ jobs:
           TEST_BINARY=$(grep '^created :' test-build.log | awk '{print $3}')
           "$TEST_BINARY"
 
+      - name: Install GNU ls (macOS)
+        if: runner.os == 'macOS'
+        run: brew install coreutils
+
       - name: Compare with GNU ls
         run: |
           koka tests/compare-ls.kk 2>&1 | tee compare-build.log
           COMPARE_BINARY=$(grep '^created :' compare-build.log | awk '{print $3}')
-          "$COMPARE_BINARY"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            "$COMPARE_BINARY" gls
+          else
+            "$COMPARE_BINARY" ls
+          fi
 
       - name: Strip binary (Linux)
         if: runner.os == 'Linux'
