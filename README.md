@@ -110,7 +110,7 @@ See [tests/kunit.kk](tests/kunit.kk).
 - [ ] `-G, --no-group` — suppress group in long listing
 - [ ] `-n, --numeric-uid-gid` — long format with numeric user and group IDs
 - [ ] `--author` — with `-l`, print author of each file
-- [ ] `-i, --inode` — print inode number of each file
+- [x] `-i, --inode` — print inode number of each file
 - [ ] `-s, --size` — print allocated size of each file in blocks
 - [ ] `-h, --human-readable` — print sizes like 1K 234M 2G (powers of 1024)
 - [ ] `--si` — like `-h`, but use powers of 1000
@@ -147,8 +147,8 @@ See [tests/kunit.kk](tests/kunit.kk).
 - [ ] `-m, --format=commas` — comma-separated list, filling width
 - [ ] `-x, --format=across` — like `-C`, but sorted across rather than down columns
 - [ ] `--format=WORD` — select format (across, commas, long, single-column, verbose, vertical)
-- [ ] `--file-type, --indicator-style=file-type` — like `-F`, but do not append `*`
-- [ ] `--indicator-style=WORD` — none, slash, file-type, classify
+- [x] `--file-type, --indicator-style=file-type` — like `-F`, but do not append `*`
+- [x] `--indicator-style=WORD` — none, slash, file-type, classify
 - [ ] `-k, --kibibytes` — default to 1024-byte blocks for `-s` and per-directory totals
 - [ ] `--color[=WHEN]` — colorize output (none, auto, always)
 - [ ] `--hyperlink[=WHEN]` — hyperlink file names (none, auto, always)

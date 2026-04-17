@@ -128,6 +128,12 @@ pub fun bio( action : () -> <bio|e> a) : e (a,string)
 // Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
+pub type indicator-style
+  IndicatorNone
+  IndicatorSlash     // -p: only / for directories
+  IndicatorFileType  // --file-type: like classify but no * for executables
+  IndicatorClassify  // -F: full indicators */=>@|
+
 pub type classify-when
   ClassifyAlways
   ClassifyAuto
@@ -145,6 +151,14 @@ fun parse-classify-when(s : string) : maybe<classify-when>
     "none"   -> Just(ClassifyNever)
     _        -> Nothing
 
+fun parse-indicator-style(s : string) : maybe<indicator-style>
+  match s
+    "none"      -> Just(IndicatorNone)
+    "slash"     -> Just(IndicatorSlash)
+    "file-type" -> Just(IndicatorFileType)
+    "classify"  -> Just(IndicatorClassify)
+    _           -> Nothing
+
 pub struct options
   show-all        : bool = False // -a
   almost-all      : bool = False // -A
@@ -152,10 +166,10 @@ pub struct options
   force-columns   : bool = False // -C
   dir-only        : bool = False // -d
   classify        : classify-when = ClassifyNever // -F, --classify[=WHEN]
+  indicator       : indicator-style = IndicatorNone // --indicator-style, -p, --file-type
   no-sort         : bool = False // -f
   hide-patterns   : list<string> = [] // --hide
   ignore-patterns : list<string> = [] // -I
-  slash-dir       : bool = False // -p
   reverse         : bool = False // -r
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
@@ -218,6 +232,16 @@ fun suffix(kind : file-kind) : string
     FFifo       -> "|"
     FRegular    -> ""
 
+// Like suffix but does not append * for executables (--file-type)
+fun file-type-suffix(kind : file-kind) : string
+  match kind
+    FDirectory  -> "/"
+    FSymlink    -> "@"
+    FExecutable -> ""
+    FSocket     -> "="
+    FFifo       -> "|"
+    FRegular    -> ""
+
 // ---------------------------------------------------------------------------
 // Help & version
 // ---------------------------------------------------------------------------
@@ -233,8 +257,10 @@ val usage = [
     "  -d, --directory              list directories themselves, not their contents",
     "  -F, --classify[=WHEN]        append indicator (one of */=>@|) to entries WHEN",
     "  -f                           same as -a -U",
+    "  --file-type                  like -F, except do not append '*'",
     "  --hide=PATTERN               do not list implied entries matching shell PATTERN",
     "                               (overridden by -a or -A)",
+    "  --indicator-style=WORD       none, slash (-p), file-type, classify (-F)",
     "  -I, --ignore=PATTERN         do not list entries matching shell PATTERN",
     "  -i, --inode                  print the index number of each file",
     "  -p, --indicator-style=slash  append / indicator to directories",
@@ -298,8 +324,13 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(sort-none = True), paths)
     Cons("--recursive", rest) ->
       parse-args(rest, opts(recurse = True), paths)
-    Cons("--indicator-style=slash", rest) -> 
-      parse-args(rest, opts(slash-dir = True), paths)
+    Cons("--file-type", rest) ->
+      parse-args(rest, opts(indicator = IndicatorFileType), paths)
+    Cons(arg, rest) | arg.starts-with("--indicator-style=").bool ->
+      val style-str = arg.slice.drop(18).string
+      match parse-indicator-style(style-str)
+        Just(sty) -> parse-args(rest, opts(indicator = sty), paths)
+        Nothing   -> InvalidFlag("--indicator-style=" ++ style-str)
     Cons("--inode", rest) ->
       parse-args(rest, opts(print-inode = True), paths)
     Cons(arg, rest) | arg.starts-with("--hide=").bool ->
@@ -348,7 +379,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
               'i' -> o(print-inode = True)
-              'p' -> o(slash-dir = True)
+              'p' -> o(indicator = IndicatorSlash)
               'r' -> o(reverse = True)
               'R' -> o(recurse = True)
               'U' -> o(sort-none = True)
@@ -405,17 +436,19 @@ pub fun is-hidden(name : string) : bool
 pub fun is-backup(name : string) : bool
   name.ends-with("~").bool
 
-// Format a single entry name with optional -F / -p suffix
+// Format a single entry name with optional indicator suffix
+// Priority: --classify / -F  >  --indicator-style / --file-type / -p
 pub fun format-name(name : string, kind : file-kind, opts : options, is-tty : bool = True) : string
   val do-classify = match opts.classify
     ClassifyAlways -> True
     ClassifyAuto   -> is-tty
     ClassifyNever  -> False
   val sfx = if do-classify then kind.suffix
-             elif opts.slash-dir then match kind
-               FDirectory -> "/"
-               _          -> ""
-             else ""
+            else match opts.indicator
+              IndicatorClassify  -> kind.suffix
+              IndicatorFileType  -> kind.file-type-suffix
+              IndicatorSlash     -> match kind { FDirectory -> "/"; _ -> "" }
+              IndicatorNone      -> ""
   if sfx.is-empty || name.ends-with(sfx).bool then name else name ++ sfx
 
 pub fun matches-any(name: string, patterns: list<string>): bool

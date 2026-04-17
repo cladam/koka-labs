@@ -379,14 +379,83 @@ pub fun main() : io ()
       assert/is-true(name == "file.txt")
 
     test("format-name with -p should not append / for non-dirs")
-      val dir-name = format-name("src", FDirectory, Options(slash-dir = True))
-      val file-name = format-name("file.txt", FRegular, Options(slash-dir = True))
+      val dir-name = format-name("src", FDirectory, Options(indicator = IndicatorSlash))
+      val file-name = format-name("file.txt", FRegular, Options(indicator = IndicatorSlash))
       assert/is-true(dir-name == "src/")
       assert/is-true(file-name == "file.txt")
 
     test("format-name should not alter name without flags")
       val name = format-name("README.md", FRegular, Options())
       assert/is-true(name == "README.md")
+
+    // --- format-name with --file-type ---
+    test("format-name --file-type appends / for directories")
+      val name = format-name("src", FDirectory, Options(indicator = IndicatorFileType))
+      assert/is-true(name == "src/")
+
+    test("format-name --file-type does not append * for executables")
+      val name = format-name("run", FExecutable, Options(indicator = IndicatorFileType))
+      assert/is-true(name == "run")
+
+    test("format-name --file-type appends @ for symlinks")
+      val name = format-name("link", FSymlink, Options(indicator = IndicatorFileType))
+      assert/is-true(name == "link@")
+
+    test("format-name --file-type appends = for sockets")
+      val name = format-name("sock", FSocket, Options(indicator = IndicatorFileType))
+      assert/is-true(name == "sock=")
+
+    test("format-name --file-type appends | for fifos")
+      val name = format-name("pipe", FFifo, Options(indicator = IndicatorFileType))
+      assert/is-true(name == "pipe|")
+
+    // --- format-name with --indicator-style=classify ---
+    test("format-name --indicator-style=classify acts like -F")
+      val name = format-name("run", FExecutable, Options(indicator = IndicatorClassify))
+      assert/is-true(name == "run*")
+
+    // --- parse-args: --file-type and --indicator-style ---
+    test("parse-args --file-type sets indicator to IndicatorFileType")
+      val ind = match parse-args(["--file-type"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorFileType
+        _ -> False
+      assert/is-true(ind)
+
+    test("parse-args --indicator-style=slash sets indicator to IndicatorSlash")
+      val ind = match parse-args(["--indicator-style=slash"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorSlash
+        _ -> False
+      assert/is-true(ind)
+
+    test("parse-args --indicator-style=file-type sets indicator")
+      val ind = match parse-args(["--indicator-style=file-type"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorFileType
+        _ -> False
+      assert/is-true(ind)
+
+    test("parse-args --indicator-style=classify sets indicator")
+      val ind = match parse-args(["--indicator-style=classify"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorClassify
+        _ -> False
+      assert/is-true(ind)
+
+    test("parse-args --indicator-style=none sets indicator")
+      val ind = match parse-args(["--indicator-style=none"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorNone
+        _ -> False
+      assert/is-true(ind)
+
+    test("parse-args --indicator-style=bogus returns InvalidFlag")
+      val invalid = match parse-args(["--indicator-style=bogus"])
+        InvalidFlag(_) -> True
+        _ -> False
+      assert/is-true(invalid)
+
+    test("parse-args -p sets indicator to IndicatorSlash")
+      val ind = match parse-args(["-p"])
+        Parsed(opts, _) -> opts.indicator.is-indicatorSlash
+        _ -> False
+      assert/is-true(ind)
 
     // --- collection assertions on list-dir-names output ---
     test("default listing has multiple entries")

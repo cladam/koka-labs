@@ -100,7 +100,7 @@ pub fun main() : io ()
 
     itest("-1p matches GNU ls -1p")
       val gnu    = run-gnu-ls("-1p", ".")
-      val koka   = run-koka-ls(".".path, Options(slash-dir = True, one-entry = True))
+      val koka   = run-koka-ls("." .path, Options(indicator = IndicatorSlash, one-entry = True))
       assert/is-true(gnu == koka)
 
     itest("-1B matches GNU ls -1B")
@@ -180,4 +180,30 @@ pub fun main() : io ()
     itest("-1i on subdirectory matches GNU ls -1i")
       val gnu    = run-gnu-ls("-1i", "src")
       val koka   = run-koka-ls("src".path, Options(print-inode = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    // --- --file-type and --indicator-style comparison tests ---
+    itest("-1 --file-type matches GNU ls -1 --file-type")
+      val gnu    = run-gnu-ls("-1 --file-type", ".")
+      val koka   = run-koka-ls(".".path, Options(indicator = IndicatorFileType, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --indicator-style=slash matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --indicator-style=slash", ".")
+      val koka   = run-koka-ls(".".path, Options(indicator = IndicatorSlash, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --indicator-style=file-type matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --indicator-style=file-type", ".")
+      val koka   = run-koka-ls(".".path, Options(indicator = IndicatorFileType, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --indicator-style=classify matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --indicator-style=classify", ".")
+      val koka   = run-koka-ls(".".path, Options(indicator = IndicatorClassify, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --indicator-style=none matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --indicator-style=none", ".")
+      val koka   = run-koka-ls(".".path, Options(indicator = IndicatorNone, one-entry = True))
       assert/is-true(gnu == koka)
