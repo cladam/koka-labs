@@ -50,7 +50,7 @@ fun run-koka-ls(dir : path, opts : options) : _ string
   fun go() : _ (int, string)
     with bio
     with status
-    list-dir(dir, opts, False)
+    list-dir(dir, opts, opts.recursive)
   val (_, output) = go()
   output.trim
 
@@ -138,6 +138,11 @@ pub fun main() : io ()
     itest("-1A --hide='*.md' shows .md files (hide overridden by -A)")
       val gnu  = run-gnu-ls("-1A --hide='*.md'", ".")
       val koka = run-koka-ls(".".path, Options(almost-all = True, hide-patterns = ["*.md"], one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1R matches GNU ls -1R")
+      val gnu    = run-gnu-ls("-1R", ".")
+      val koka   = run-koka-ls(".".path, Options(recursive = True, one-entry = True))
       assert/is-true(gnu == koka)
 
     itest("-1U unsorted has same entries as GNU ls -1U")

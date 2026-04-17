@@ -151,6 +151,7 @@ pub struct options
   ignore-patterns : list<string> = [] // -I
   slash-dir       : bool = False // -p
   reverse         : bool = False // -r
+  recursive       : bool = False // -R
   sort-none       : bool = False // -U
   one-entry       : bool = False // -1
 
@@ -209,6 +210,7 @@ val usage = [
     "  -I, --ignore=PATTERN         do not list entries matching shell PATTERN",
     "  -p, --indicator-style=slash  append / indicator to directories",
     "  -r, --reverse                reverse order while sorting",
+    "  -R, --recursive              list subdirectories recursively",
     "  -U, --sort=none              do not sort; list entries in directory order",
     "  -1                           list one file per line",
     "      --help                   show this help and exit",
@@ -265,6 +267,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       parse-args(rest, opts(dir-only = True), paths)
     Cons("--sort=none", rest) ->
       parse-args(rest, opts(sort-none = True), paths)
+    Cons("--recursive", rest) ->
+      parse-args(rest, opts(recursive = True), paths)
     Cons("--indicator-style=slash", rest) -> 
       parse-args(rest, opts(slash-dir = True), paths)
     Cons(arg, rest) | arg.starts-with("--hide=").bool ->
@@ -292,6 +296,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'I' -> False
           'p' -> False
           'r' -> False
+          'R' -> False
           'U' -> False
           '1' -> False
           _   -> True
@@ -311,6 +316,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'F' -> o(classify = ClassifyAlways)
               'p' -> o(slash-dir = True)
               'r' -> o(reverse = True)
+              'R' -> o(recursive = True)
               'U' -> o(sort-none = True)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
@@ -324,9 +330,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
 
 // ---------------------------------------------------------------------------
-// Sorting
-// Koka's standard library doesn't include a list sort.
-// Simple insertion sort — fine for directory listings.
+// Sorting — simple insertion sort, fine for directory listings.
 // ---------------------------------------------------------------------------
 
 fun insert(x : string, xs : list<string>, cmp : (string, string) -> order) : list<string>
@@ -340,6 +344,18 @@ pub fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
   match xs
     Nil -> Nil
     Cons(x, rest) -> insert(x, rest.sort(cmp), cmp)
+
+fun insertby(x : a, xs : list<a>, cmp : (a, a) -> order) : list<a>
+  match xs
+    Nil -> [x]
+    Cons(y, ys) -> match cmp(x, y)
+      Gt -> Cons(y, insertby(x, ys, cmp))
+      _  -> Cons(x, xs)
+
+pub fun sortby(xs : list<a>, cmp : (a, a) -> order) : list<a>
+  match xs
+    Nil -> Nil
+    Cons(x, rest) -> insertby(x, rest.sortby(cmp), cmp)
 
 // ---------------------------------------------------------------------------
 // Filtering
@@ -371,6 +387,9 @@ pub fun format-name(name : string, kind : file-kind, opts : options, is-tty : bo
 pub fun matches-any(name: string, patterns: list<string>): bool
   patterns.any(fn(p) fnmatch(p, name))
 
+fun is-dot-dir(name : string) : bool
+  name == "." || name == ".."
+
 // ---------------------------------------------------------------------------
 // Listing
 // list-directory returns full paths; only display the basename, matching
@@ -400,12 +419,12 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
     Nil -> unhidden
     pats -> unhidden.filter(fn(n) not(n.matches-any(pats)))
   val sorted = if opts.sort-none then ignored
-               elif opts.reverse then ignored.sort(fn(a, b) cmp(b, a))
-               else ignored.sort(cmp)
+               elif opts.reverse then ignored.sortby(fn(a, b) cmp(b, a))
+               else ignored.sortby(cmp)
   (sorted, 0)
 
-pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
-  if show-header then echoln(dir-path.string ++ ":")
+pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-path : string = dir-path.string) : _ int
+  if show-header then echoln(display-path ++ ":")
   val tty = stdout-is-tty()
   val (sorted, code) = list-dir-names(dir-path, opts, tty)
   val use-columns = if opts.one-entry then False
@@ -417,7 +436,24 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
     lines.foreach(fn(line) echoln(line))
   else
     sorted.foreach(fn(name) echoln(name))
-  code
+  // Recurse into subdirectories for -R
+  if opts.recursive && !opts.dir-only then
+    val entries = match try({list-directory(dir-path)})
+      Ok(es) -> es
+      Error(_) -> []
+    val dirs = entries.filter(fn(p) is-directory(p) && !p.nodir.string.is-dot-dir)
+    val visible-dirs = if opts.show-all || opts.almost-all then dirs
+                       else dirs.filter(fn(p) not(p.nodir.string.is-hidden))
+    val sorted-dirs = if opts.sort-none then visible-dirs
+                      elif opts.reverse then visible-dirs.sortby(fn(a, b) cmp(b.nodir.string, a.nodir.string))
+                      else visible-dirs.sortby(fn(a, b) cmp(a.nodir.string, b.nodir.string))
+    sorted-dirs.foldl(code) fn(acc, sub)
+      echoln("")
+      val sub-path = (dir-path.string ++ "/" ++ sub.nodir.string).path
+      val sub-display = display-path ++ "/" ++ sub.nodir.string
+      val sub-code = list-dir(sub-path, opts, True, sub-display)
+      if sub-code > acc then sub-code else acc
+  else code
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -426,7 +462,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool) : _ int
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCfFdIprU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABCfFdIprRU1] [--help] [--version] [file ...]"
 
 fun main()
   val code = status
@@ -457,8 +493,8 @@ fun main()
         val tty = stdout-is-tty()
         val file-names = files.map(fn(f) format-name(f.nodir.string, f.classify, opts, tty))
         val sorted-file-names = if opts.sort-none then file-names
-                                elif opts.reverse then file-names.sort(fn(a, b) cmp(b, a))
-                                else file-names.sort(cmp)
+                                elif opts.reverse then file-names.sortBy(fn(a, b) cmp(b, a))
+                                else file-names.sortBy(cmp)
         sorted-file-names.foreach(fn(name) echoln(name))
         // Sort directories, then list each
         // TODO: GNU ls sorts directory arguments alphabetically before listing.
