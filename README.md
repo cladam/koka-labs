@@ -98,7 +98,7 @@ See [tests/kunit.kk](tests/kunit.kk).
 - [x] `--hide=PATTERN` — hide matching entries (overridden by `-a`/`-A`)
 - [x] `-I, --ignore=PATTERN` — do not list entries matching pattern
 - [ ] `-L, --dereference` — show information for link target, not the link itself
-- [ ] `-R, --recursive` — list subdirectories recursively
+- [x] `-R, --recursive` — list subdirectories recursively
 
 ### Phase 3 — What information is listed
 

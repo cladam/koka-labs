@@ -313,6 +313,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
               // Add those overrides here later
               'f' -> o(show-all = True, sort-none = True)
+              // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
               'p' -> o(slash-dir = True)
               'r' -> o(reverse = True)
