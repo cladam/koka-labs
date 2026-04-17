@@ -151,7 +151,7 @@ pub struct options
   ignore-patterns : list<string> = [] // -I
   slash-dir       : bool = False // -p
   reverse         : bool = False // -r
-  recursive       : bool = False // -R
+  recurse         : bool = False // -R
   sort-none       : bool = False // -U
   one-entry       : bool = False // -1
 
@@ -268,7 +268,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons("--sort=none", rest) ->
       parse-args(rest, opts(sort-none = True), paths)
     Cons("--recursive", rest) ->
-      parse-args(rest, opts(recursive = True), paths)
+      parse-args(rest, opts(recurse = True), paths)
     Cons("--indicator-style=slash", rest) -> 
       parse-args(rest, opts(slash-dir = True), paths)
     Cons(arg, rest) | arg.starts-with("--hide=").bool ->
@@ -316,7 +316,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'F' -> o(classify = ClassifyAlways)
               'p' -> o(slash-dir = True)
               'r' -> o(reverse = True)
-              'R' -> o(recursive = True)
+              'R' -> o(recurse = True)
               'U' -> o(sort-none = True)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
@@ -437,7 +437,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
   else
     sorted.foreach(fn(name) echoln(name))
   // Recurse into subdirectories for -R
-  if opts.recursive && !opts.dir-only then
+  if opts.recurse && !opts.dir-only then
     val entries = match try({list-directory(dir-path)})
       Ok(es) -> es
       Error(_) -> []

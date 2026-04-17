@@ -91,17 +91,17 @@ pub fun main() : io ()
 
     // --- recursive integration tests ---
     itest("-R: recursive listing includes subdirectory header")
-      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recursive = True))
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recurse = True))
       assert/is-true(code == 0)
       assert/is-true(output.contains("src:"))
 
     itest("-R: recursive listing includes files from subdirectories")
-      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recursive = True))
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recurse = True))
       assert/is-true(code == 0)
       assert/is-true(output.contains("ls.kk"))
 
     itest("-R: recursive listing does not recurse into . or ..")
-      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recursive = True))
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, recurse = True))
       assert/is-true(code == 0)
       assert/is-false(output.contains("./.:" ))
       assert/is-false(output.contains("./..:" ))
@@ -210,19 +210,19 @@ pub fun main() : io ()
 
     test("parse-args -R enables recursive")
       val rec = match parse-args(["-R"])
-        Parsed(opts, _) -> opts.recursive
+        Parsed(opts, _) -> opts.recurse
         _ -> False
       assert/is-true(rec)
 
     test("parse-args --recursive enables recursive")
       val rec = match parse-args(["--recursive"])
-        Parsed(opts, _) -> opts.recursive
+        Parsed(opts, _) -> opts.recurse
         _ -> False
       assert/is-true(rec)
 
     test("Options should not have recursive by default")
       val opts = Options()
-      assert/is-false(opts.recursive)
+      assert/is-false(opts.recurse)
 
     test("parse-args -U enables sort-none")
       val ns = match parse-args(["-U"])
