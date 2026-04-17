@@ -50,7 +50,7 @@ fun run-koka-ls(dir : path, opts : options) : _ string
   fun go() : _ (int, string)
     with bio
     with status
-    list-dir(dir, opts, opts.recursive)
+    list-dir(dir, opts, opts.recurse)
   val (_, output) = go()
   output.trim
 
@@ -142,11 +142,42 @@ pub fun main() : io ()
 
     itest("-1R matches GNU ls -1R")
       val gnu    = run-gnu-ls("-1R", ".")
-      val koka   = run-koka-ls(".".path, Options(recursive = True, one-entry = True))
+      val koka   = run-koka-ls("." .path, Options(recurse = True, one-entry = True))
       assert/is-true(gnu == koka)
 
     itest("-1U unsorted has same entries as GNU ls -1U")
       // GNU ls -U is directory order which may differ, so compare as sets
       val gnu    = run-gnu-ls("-1U", ".").split("\n").sort(string/cmp)
       val koka   = run-koka-ls(".".path, Options(sort-none = True, one-entry = True)).split("\n").sort(string/cmp)
+      assert/is-true(gnu == koka)
+
+    // --- inode comparison tests ---
+    itest("-1i matches GNU ls -1i")
+      val gnu    = run-gnu-ls("-1i", ".")
+      val koka   = run-koka-ls(".".path, Options(print-inode = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1ia matches GNU ls -1ia")
+      val gnu    = run-gnu-ls("-1ia", ".")
+      val koka   = run-koka-ls(".".path, Options(print-inode = True, show-all = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1iA matches GNU ls -1iA")
+      val gnu    = run-gnu-ls("-1iA", ".")
+      val koka   = run-koka-ls(".".path, Options(print-inode = True, almost-all = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1ir matches GNU ls -1ir")
+      val gnu    = run-gnu-ls("-1ir", ".")
+      val koka   = run-koka-ls(".".path, Options(print-inode = True, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1iF matches GNU ls -1iF")
+      val gnu    = run-gnu-ls("-1iF", ".")
+      val koka   = run-koka-ls(".".path, Options(print-inode = True, classify = ClassifyAlways, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1i on subdirectory matches GNU ls -1i")
+      val gnu    = run-gnu-ls("-1i", "src")
+      val koka   = run-koka-ls("src".path, Options(print-inode = True, one-entry = True))
       assert/is-true(gnu == koka)

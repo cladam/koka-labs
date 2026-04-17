@@ -65,28 +65,28 @@ pub fun main() : io ()
     // Output assertions: verify expected entries appear
     itest("default listing contains README.md")
       val (entries, _) = list-dir-names("." .path, Options())
-      assert/is-true(entries.any(fn(e) e == "README.md"))
+      assert/is-true(entries.any(fn(e) e.fst == "README.md"))
 
     itest("default listing contains src")
       val (entries, _) = list-dir-names("." .path, Options())
-      assert/is-true(entries.any(fn(e) e == "src"))
+      assert/is-true(entries.any(fn(e) e.fst == "src"))
 
     itest("show-all listing contains .")
       val (entries, _) = list-dir-names("." .path, Options(show-all = True))
-      assert/is-true(entries.any(fn(e) e == "."))
+      assert/is-true(entries.any(fn(e) e.fst == "."))
 
     itest("show-all listing contains ..")
       val (entries, _) = list-dir-names("." .path, Options(show-all = True))
-      assert/is-true(entries.any(fn(e) e == ".."))
+      assert/is-true(entries.any(fn(e) e.fst == ".."))
 
     itest("show-all listing contains README.md")
       val (entries, _) = list-dir-names("." .path, Options(show-all = True))
-      assert/is-true(entries.any(fn(e) e == "README.md"))
+      assert/is-true(entries.any(fn(e) e.fst == "README.md"))
 
     itest("reverse listing is in descending order")
       val (entries-r, _) = list-dir-names("." .path, Options(reverse = True))
-      val first = entries-r.head.default("")
-      val last  = entries-r.last.default("")
+      val first = entries-r.head.default(("", 0)).fst
+      val last  = entries-r.last.default(("", 0)).fst
       assert/is-true(first > last)
 
     // --- recursive integration tests ---
@@ -111,11 +111,46 @@ pub fun main() : io ()
       val backup-file = "tests/test-ls.kk~"
       create-test-file(backup-file, "backup content")
       val (entries, _) = list-dir-names("tests".path, Options())
-      assert/is-true(entries.any(fn(e) e == "test-ls.kk~"))
+      assert/is-true(entries.any(fn(e) e.fst == "test-ls.kk~"))
 
     itest("-B: ignore-backups hides backup file")
       val (entries, _) = list-dir-names("tests".path, Options(ignore-backups = True))
-      assert/is-true(entries.all(fn(e) e != "test-ls.kk~"))
+      assert/is-true(entries.all(fn(e) e.fst != "test-ls.kk~"))
+
+    // --- inode integration tests ---
+    itest("-i: list-dir-names returns non-zero inodes")
+      val (entries, _) = list-dir-names(".".path, Options(print-inode = True))
+      // All inodes from readdir should be > 0
+      assert/is-true(entries.all(fn(e) e.snd > 0))
+
+    itest("-i: inodes are consistent across calls")
+      val (entries1, _) = list-dir-names(".".path, Options(print-inode = True))
+      val (entries2, _) = list-dir-names(".".path, Options(print-inode = True))
+      val ino1 = entries1.filter(fn(e) e.fst == "README.md").head.default(("", 0)).snd
+      val ino2 = entries2.filter(fn(e) e.fst == "README.md").head.default(("", 0)).snd
+      assert/is-true(ino1 > 0)
+      assert/is-true(ino1 == ino2)
+
+    itest("-i: captured output contains inode numbers")
+      val (code, output) = captured-list-dir(".".path, Options(one-entry = True, print-inode = True))
+      assert/is-true(code == 0)
+      // Each line should start with spaces/digits (the inode), then a space, then the name
+      val has-readme = output.lines.any fn(line)
+        line.contains("README.md") && line.trim.head-char.default(' ').is-digit
+      assert/is-true(has-readme)
+
+    itest("-i with -a: . and .. have inodes")
+      val (entries, _) = list-dir-names(".".path, Options(show-all = True, print-inode = True))
+      val dot-ino = entries.filter(fn(e) e.fst == ".").head.default(("", 0)).snd
+      val dotdot-ino = entries.filter(fn(e) e.fst == "..").head.default(("", 0)).snd
+      assert/is-true(dot-ino > 0)
+      assert/is-true(dotdot-ino > 0)
+
+    itest("-i: read-dir-entries returns entries with inodes")
+      val entries = read-dir-entries(".".path)
+      assert/not-empty(entries)
+      // At least one entry should have a non-zero inode
+      assert/is-true(entries.any(fn(e) e.entry-ino > 0))
 
   // Unit tests for pure logic
   println("") // Empty line for better output
@@ -359,4 +394,80 @@ pub fun main() : io ()
 
     test("in-range: entry count is reasonable")
       assert/in-range(5, 1, 100)
+
+    // --- parse-args: -i / --inode ---
+    test("parse-args -i enables print-inode")
+      val pi = match parse-args(["-i"])
+        Parsed(opts, _) -> opts.print-inode
+        _ -> False
+      assert/is-true(pi)
+
+    test("parse-args --inode enables print-inode")
+      val pi = match parse-args(["--inode"])
+        Parsed(opts, _) -> opts.print-inode
+        _ -> False
+      assert/is-true(pi)
+
+    test("parse-args -i combined with other flags")
+      val result = parse-args(["-1i"])
+      match result
+        Parsed(opts, _) ->
+          assert/is-true(opts.print-inode)
+          assert/is-true(opts.one-entry)
+        _ -> assert/is-true(False)
+
+    test("Options should not have print-inode by default")
+      val opts = Options()
+      assert/is-false(opts.print-inode)
+
+    // --- format-inode ---
+    test("format-inode right-justifies to given width")
+      val s = format-inode(42, 6)
+      assert/is-true(s == "    42")
+
+    test("format-inode with exact width has no padding")
+      val s = format-inode(12345, 5)
+      assert/is-true(s == "12345")
+
+    test("format-inode with large inode")
+      val s = format-inode(167835661, 9)
+      assert/is-true(s == "167835661")
+
+    // --- inode-width ---
+    test("inode-width returns max display width")
+      val entries = [("a", 1), ("b", 999), ("c", 42)]
+      val w = inode-width(entries)
+      assert/is-true(w == 3)
+
+    test("inode-width of empty list is 0")
+      val entries : list<(string, int)> = []
+      val w = inode-width(entries)
+      assert/is-true(w == 0)
+
+    // --- format-entries ---
+    test("format-entries without -i returns plain names")
+      val entries = [("README.md", 123), ("src", 456)]
+      val result = format-entries(entries, Options())
+      assert/is-true(result == ["README.md", "src"])
+
+    test("format-entries with -i prepends inode")
+      val entries = [("README.md", 42), ("src", 999)]
+      val result = format-entries(entries, Options(print-inode = True))
+      assert/is-true(result == [" 42 README.md", "999 src"])
+
+    // --- parse-readdir ---
+    test("parse-readdir parses inode-tab-name format")
+      val input = "123\tfile1\n456\tfile2\n"
+      val entries = parse-readdir(input)
+      match entries
+        Cons(e1, Cons(e2, Nil)) ->
+          assert/is-true(e1.entry-name == "file1")
+          assert/is-true(e1.entry-ino == 123)
+          assert/is-true(e2.entry-name == "file2")
+          assert/is-true(e2.entry-ino == 456)
+        _ -> assert/is-true(False)
+
+    test("parse-readdir handles empty string")
+      val entries = parse-readdir("")
+      assert/is-true(entries.is-nil)
 
