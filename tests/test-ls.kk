@@ -261,7 +261,7 @@ pub fun main() : io ()
 
     test("parse-args -U enables sort-none")
       val ns = match parse-args(["-U"])
-        Parsed(opts, _) -> opts.sort-none
+        Parsed(opts, _) -> opts.sort-by.is-sortNone
         _ -> False
       assert/is-true(ns)
 

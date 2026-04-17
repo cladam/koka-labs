@@ -22,3 +22,4 @@ fi
 
 # Run all tests
 exec "./${binary}"
+

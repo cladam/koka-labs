@@ -147,8 +147,8 @@ pub fun main() : io ()
 
     itest("-1U unsorted has same entries as GNU ls -1U")
       // GNU ls -U is directory order which may differ, so compare as sets
-      val gnu    = run-gnu-ls("-1U", ".").split("\n").sort(string/cmp)
-      val koka   = run-koka-ls(".".path, Options(sort-none = True, one-entry = True)).split("\n").sort(string/cmp)
+      val gnu    = run-gnu-ls("-1U", ".").split("\n").sortBy(string/cmp)
+      val koka   = run-koka-ls("." .path, Options(sort-by = SortNone, one-entry = True)).split("\n").sortBy(string/cmp)
       assert/is-true(gnu == koka)
 
     // --- inode comparison tests ---
@@ -206,4 +206,25 @@ pub fun main() : io ()
     itest("-1 --indicator-style=none matches GNU ls")
       val gnu    = run-gnu-ls("-1 --indicator-style=none", ".")
       val koka   = run-koka-ls(".".path, Options(indicator = IndicatorNone, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    // --- size sort comparison tests ---
+    itest("-1S matches GNU ls -1S")
+      val gnu    = run-gnu-ls("-1S", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1Sr matches GNU ls -1Sr")
+      val gnu    = run-gnu-ls("-1Sr", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1S on subdirectory matches GNU ls -1S")
+      val gnu    = run-gnu-ls("-1S", "src")
+      val koka   = run-koka-ls("src".path, Options(sort-by = SortSize, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1SF matches GNU ls -1SF")
+      val gnu    = run-gnu-ls("-1SF", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, classify = ClassifyAlways, one-entry = True))
       assert/is-true(gnu == koka)

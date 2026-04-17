@@ -23,3 +23,4 @@ fi
 
 # Run all tests
 exec "./${binary}" "$ls_binary"
+

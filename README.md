@@ -14,6 +14,7 @@ cd koka-labs
 ### Requirements
 
 - macOS / Linux POSIX
+- coreutils installed
 - Koka the language installed: `curl -sSL https://github.com/koka-lang/koka/releases/latest/download/install.sh | sudo sh`
 
 ## Running
@@ -124,7 +125,7 @@ See [tests/kunit.kk](tests/kunit.kk).
 
 [GNU §10.1.3](https://www.gnu.org/software/coreutils/manual/html_node/Sorting-the-output.html)
 - [x] `-r, --reverse` — reverse whatever the sorting method is
-- [ ] `-S, --sort=size` — sort by file size, largest first
+- [x] `-S, --sort=size` — sort by file size, largest first
 - [ ] `-t, --sort=time` — sort by modification time, newest first
 - [x] `-U, --sort=none` — do not sort; list entries in directory order
 - [ ] `-v, --sort=version` — natural sort of version numbers within text

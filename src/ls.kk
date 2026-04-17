@@ -63,6 +63,9 @@ extern readdir-raw(dir : string) : fsys string
 extern get-inode(p : string) : fsys int
   c "kk_os_get_inode"
 
+extern get-size(p : string) : fsys int
+  c "kk_os_get_size"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
@@ -128,6 +131,11 @@ pub fun bio( action : () -> <bio|e> a) : e (a,string)
 // Options — will grow as I add flags like -l, -R, -t, etc.
 // ---------------------------------------------------------------------------
 
+pub type sort-key
+  SortName       // default: alphabetical
+  SortSize       // -S: largest first
+  SortNone       // -U: directory order
+
 pub type indicator-style
   IndicatorNone
   IndicatorSlash     // -p: only / for directories
@@ -159,13 +167,20 @@ fun parse-indicator-style(s : string) : maybe<indicator-style>
     "classify"  -> Just(IndicatorClassify)
     _           -> Nothing
 
+fun parse-sort-key(s : string) : maybe<sort-key>
+  match s
+    "none"      -> Just(SortNone)
+    "name"      -> Just(SortName)
+    "size"      -> Just(SortSize)
+    _           -> Nothing
+
 pub struct options
   show-all        : bool = False // -a
   almost-all      : bool = False // -A
   ignore-backups  : bool = False // -B
   force-columns   : bool = False // -C
   dir-only        : bool = False // -d
-  classify        : classify-when = ClassifyNever // -F, --classify[=WHEN]
+  classify        : classify-when   = ClassifyNever // -F, --classify[=WHEN]
   indicator       : indicator-style = IndicatorNone // --indicator-style, -p, --file-type
   no-sort         : bool = False // -f
   hide-patterns   : list<string> = [] // --hide
@@ -173,7 +188,7 @@ pub struct options
   reverse         : bool = False // -r
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
-  sort-none       : bool = False // -U
+  sort-by         : sort-key = SortName // --sort=WORD, -S, -U
   one-entry       : bool = False // -1
 
 // ---------------------------------------------------------------------------
@@ -266,7 +281,9 @@ val usage = [
     "  -p, --indicator-style=slash  append / indicator to directories",
     "  -r, --reverse                reverse order while sorting",
     "  -R, --recursive              list subdirectories recursively",
-    "  -U, --sort=none              do not sort; list entries in directory order",
+    "  -S                           sort by file size, largest first",
+    "      --sort=WORD              sort by WORD: none (-U), name, size (-S)",
+    "  -U                           do not sort; list entries in directory order",
     "  -1                           list one file per line",
     "      --help                   show this help and exit",
     "      --version                show version and exit"
@@ -321,7 +338,12 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
     Cons("--directory", rest) ->
       parse-args(rest, opts(dir-only = True), paths)
     Cons("--sort=none", rest) ->
-      parse-args(rest, opts(sort-none = True), paths)
+      parse-args(rest, opts(sort-by = SortNone), paths)
+    Cons(arg, rest) | arg.starts-with("--sort=").bool ->
+      val sort-str = arg.slice.drop(7).string
+      match parse-sort-key(sort-str)
+        Just(sk) -> parse-args(rest, opts(sort-by = sk), paths)
+        Nothing  -> InvalidFlag("--sort=" ++ sort-str)
     Cons("--recursive", rest) ->
       parse-args(rest, opts(recurse = True), paths)
     Cons("--file-type", rest) ->
@@ -360,6 +382,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'p' -> False
           'r' -> False
           'R' -> False
+          'S' -> False
           'U' -> False
           '1' -> False
           _   -> True
@@ -375,14 +398,15 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'd' -> o(dir-only = True)
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
               // Add those overrides here later
-              'f' -> o(show-all = True, sort-none = True)
+              'f' -> o(show-all = True, sort-by = SortNone)
               // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
               'i' -> o(print-inode = True)
               'p' -> o(indicator = IndicatorSlash)
               'r' -> o(reverse = True)
               'R' -> o(recurse = True)
-              'U' -> o(sort-none = True)
+              'S' -> o(sort-by = SortSize)
+              'U' -> o(sort-by = SortNone)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
           if has-I then
@@ -397,18 +421,6 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
 // ---------------------------------------------------------------------------
 // Sorting — simple insertion sort, fine for directory listings.
 // ---------------------------------------------------------------------------
-
-fun insert(x : string, xs : list<string>, cmp : (string, string) -> order) : list<string>
-  match xs
-    Nil -> [x]
-    Cons(y, ys) -> match cmp(x, y)
-      Gt -> Cons(y, insert(x, ys, cmp))
-      _  -> Cons(x, xs)
-
-pub fun sort(xs : list<string>, cmp : (string, string) -> order) : list<string>
-  match xs
-    Nil -> Nil
-    Cons(x, rest) -> insert(x, rest.sort(cmp), cmp)
 
 fun insertby(x : a, xs : list<a>, cmp : (a, a) -> order) : list<a>
   match xs
@@ -468,14 +480,14 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
     Error(exn) ->
       eprintln("ls: cannot open directory '" ++ dir-path.string ++ "': " ++ exn.message)
       return ([], set-exit-status(0, serious = False))
-  // Map to (display-name, inode) tuples; classify on full path
+  // Map to (display-name, inode, raw-name) tuples; classify on full path
   val entries = raw-entries.map fn(de)
     val full = (dir-path / de.entry-name.path)
-    (format-name(de.entry-name, full.classify, opts, is-tty), de.entry-ino)
+    (format-name(de.entry-name, full.classify, opts, is-tty), de.entry-ino, de.entry-name)
   val visible = if opts.show-all then
-                  val dot    = (format-name(".",  FDirectory, opts, is-tty), get-inode(dir-path.string))
+                  val dot    = (format-name(".",  FDirectory, opts, is-tty), get-inode(dir-path.string), ".")
                   val dotdot-path = (dir-path / "..".path).string
-                  val dotdot = (format-name("..", FDirectory, opts, is-tty), get-inode(dotdot-path))
+                  val dotdot = (format-name("..", FDirectory, opts, is-tty), get-inode(dotdot-path), "..")
                   Cons(dot, Cons(dotdot, entries))
                 elif opts.almost-all then entries
                 else entries.filter(fn(e) not(e.fst.is-hidden))
@@ -488,9 +500,21 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
   val ignored  = match opts.ignore-patterns
     Nil -> unhidden
     pats -> unhidden.filter(fn(e) not(e.fst.matches-any(pats)))
-  val sorted = if opts.sort-none then ignored
-               elif opts.reverse then ignored.sortby(fn(a, b) cmp(b.fst, a.fst))
-               else ignored.sortby(fn(a, b) cmp(a.fst, b.fst))
+  val sorted = match opts.sort-by
+    SortNone -> ignored.map(fn(e) (e.fst, e.snd))
+    SortName ->
+      val s = if opts.reverse then ignored.sortby(fn(a, b) cmp(b.fst, a.fst))
+              else ignored.sortby(fn(a, b) cmp(a.fst, b.fst))
+      s.map(fn(e) (e.fst, e.snd))
+    SortSize ->
+      val with-size = ignored.map fn(e)
+        val sz = get-size((dir-path / e.thd.path).string)
+        (e.fst, e.snd, sz)
+      val s = if opts.reverse then with-size.sortby fn(a, b)
+                match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
+              else with-size.sortby fn(a, b)
+                match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
+      s.map(fn(e) (e.fst, e.snd))
   (sorted, 0)
 
 // Format inode for display, right-justified to given width
@@ -535,9 +559,18 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
     val dirs = raw-entries.filter(fn(de) is-directory(dir-path / de.entry-name.path) && !de.entry-name.is-dot-dir)
     val visible-dirs = if opts.show-all || opts.almost-all then dirs
                        else dirs.filter(fn(de) not(de.entry-name.is-hidden))
-    val sorted-dirs = if opts.sort-none then visible-dirs
-                      elif opts.reverse then visible-dirs.sortby(fn(a, b) cmp(b.entry-name, a.entry-name))
-                      else visible-dirs.sortby(fn(a, b) cmp(a.entry-name, b.entry-name))
+    val sorted-dirs = match opts.sort-by
+      SortNone -> visible-dirs
+      SortName ->
+        if opts.reverse then visible-dirs.sortby(fn(a, b) cmp(b.entry-name, a.entry-name))
+        else visible-dirs.sortby(fn(a, b) cmp(a.entry-name, b.entry-name))
+      SortSize ->
+        val with-size = visible-dirs.map(fn(de) (de, get-size((dir-path / de.entry-name.path).string)))
+        val s = if opts.reverse then with-size.sortby fn(a, b)
+                  match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.entry-name, a.fst.entry-name); c -> c }
+                else with-size.sortby fn(a, b)
+                  match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.entry-name, b.fst.entry-name); c -> c }
+        s.map(fn(e) e.fst)
     sorted-dirs.foldl(code) fn(acc, de)
       echoln("")
       val sub-path = (dir-path.string ++ "/" ++ de.entry-name).path
@@ -553,7 +586,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCfFdiIprRU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABCfFdiIprRSU1] [--help] [--version] [file ...]"
 
 fun main()
   val code = status
@@ -588,10 +621,20 @@ fun main()
         val file-entries = files.map fn(t)
           val name = format-name(t.fst, (t.snd).classify, opts, tty)
           val ino = if opts.print-inode then get-inode((t.snd).string) else 0
-          (name, ino)
-        val sorted-file-entries = if opts.sort-none then file-entries
-                                  elif opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
-                                  else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
+          (name, ino, (t.snd).string)
+        val sorted-file-entries = match opts.sort-by
+          SortNone -> file-entries.map(fn(e) (e.fst, e.snd))
+          SortName ->
+            val s = if opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
+                    else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
+            s.map(fn(e) (e.fst, e.snd))
+          SortSize ->
+            val with-size = file-entries.map(fn(e) (e.fst, e.snd, get-size(e.thd)))
+            val s = if opts.reverse then with-size.sortby fn(a, b)
+                      match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
+                    else with-size.sortby fn(a, b)
+                      match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
+            s.map(fn(e) (e.fst, e.snd))
         val sorted-file-names = format-entries(sorted-file-entries, opts)
         val use-columns = if opts.one-entry then False
                           elif opts.force-columns then True
@@ -603,9 +646,16 @@ fun main()
         else
           sorted-file-names.foreach(fn(name) echoln(name))
         // Sort directories, then list each
-        val sorted-dirs = if opts.sort-none then dirs
-                          elif opts.reverse then dirs.reverse
-                          else dirs  // already in argument order, which is fine
+        val sorted-dirs = match opts.sort-by
+          SortNone -> dirs
+          SortSize ->
+            val with-size = dirs.map(fn(t) (t, get-size((t.snd).string)))
+            val s = if opts.reverse then with-size.sortby(fn(a, b) cmp(a.snd, b.snd))
+                    else with-size.sortby(fn(a, b) cmp(b.snd, a.snd))
+            s.map(fn(e) e.fst)
+          _ ->
+            if opts.reverse then dirs.reverse
+            else dirs  // already in argument order, which is fine
         val show-header = sorted-dirs.length > 1 || sorted-file-names.length > 0
         sorted-dirs.foreach-indexed fn(i, dir-entry)
           if i > 0 || sorted-file-names.length > 0 then echoln("")
