@@ -186,6 +186,54 @@ static kk_integer_t kk_os_get_size(kk_string_t path, kk_context_t* ctx) {
 }
 
 /*
+  get-mtime/get-atime/get-ctime: Get file timestamps as seconds since epoch.
+  Returns 0 on error. Uses lstat so symlinks return their own metadata.
+  macOS uses st_mtimespec; Linux uses st_mtim.
+*/
+#ifdef __APPLE__
+  #define KK_ST_MTIME(st) ((st).st_mtimespec.tv_sec)
+  #define KK_ST_ATIME(st) ((st).st_atimespec.tv_sec)
+  #define KK_ST_CTIME(st) ((st).st_ctimespec.tv_sec)
+#else
+  #define KK_ST_MTIME(st) ((st).st_mtim.tv_sec)
+  #define KK_ST_ATIME(st) ((st).st_atim.tv_sec)
+  #define KK_ST_CTIME(st) ((st).st_ctim.tv_sec)
+#endif
+
+static kk_integer_t kk_os_get_mtime(kk_string_t path, kk_context_t* ctx) {
+  struct stat st = { 0 };
+  int err = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    if (lstat(cpath, &st) < 0) err = errno;
+  }
+  kk_string_drop(path, ctx);
+  if (err != 0) return kk_integer_from_int(0, ctx);
+  return kk_integer_from_int64((int64_t)KK_ST_MTIME(st), ctx);
+}
+
+static kk_integer_t kk_os_get_atime(kk_string_t path, kk_context_t* ctx) {
+  struct stat st = { 0 };
+  int err = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    if (lstat(cpath, &st) < 0) err = errno;
+  }
+  kk_string_drop(path, ctx);
+  if (err != 0) return kk_integer_from_int(0, ctx);
+  return kk_integer_from_int64((int64_t)KK_ST_ATIME(st), ctx);
+}
+
+static kk_integer_t kk_os_get_ctime(kk_string_t path, kk_context_t* ctx) {
+  struct stat st = { 0 };
+  int err = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    if (lstat(cpath, &st) < 0) err = errno;
+  }
+  kk_string_drop(path, ctx);
+  if (err != 0) return kk_integer_from_int(0, ctx);
+  return kk_integer_from_int64((int64_t)KK_ST_CTIME(st), ctx);
+}
+
+/*
   get-inode: Get the inode number of a file via lstat.
   Returns 0 on error. Uses lstat so symlinks return their own inode.
 */

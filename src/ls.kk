@@ -66,6 +66,15 @@ extern get-inode(p : string) : fsys int
 extern get-size(p : string) : fsys int
   c "kk_os_get_size"
 
+extern get-mtime(p : string) : fsys int
+  c "kk_os_get_mtime"
+
+extern get-atime(p : string) : fsys int
+  c "kk_os_get_atime"
+
+extern get-ctime(p : string) : fsys int
+  c "kk_os_get_ctime"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
@@ -134,7 +143,13 @@ pub fun bio( action : () -> <bio|e> a) : e (a,string)
 pub type sort-key
   SortName       // default: alphabetical
   SortSize       // -S: largest first
+  SortTime       // -t: newest first
   SortNone       // -U: directory order
+
+pub type time-kind
+  TimeMtime      // default: modification time
+  TimeAtime      // -u: access time
+  TimeCtime      // -c: status change time
 
 pub type indicator-style
   IndicatorNone
@@ -172,7 +187,19 @@ fun parse-sort-key(s : string) : maybe<sort-key>
     "none"      -> Just(SortNone)
     "name"      -> Just(SortName)
     "size"      -> Just(SortSize)
+    "time"      -> Just(SortTime)
     _           -> Nothing
+
+fun parse-time-kind(s : string) : maybe<time-kind>
+  match s
+    "mtime"         -> Just(TimeMtime)
+    "modification"  -> Just(TimeMtime)
+    "atime"         -> Just(TimeAtime)
+    "access"        -> Just(TimeAtime)
+    "use"           -> Just(TimeAtime)
+    "ctime"         -> Just(TimeCtime)
+    "status"        -> Just(TimeCtime)
+    _               -> Nothing
 
 pub struct options
   show-all        : bool = False // -a
@@ -188,7 +215,8 @@ pub struct options
   reverse         : bool = False // -r
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
-  sort-by         : sort-key = SortName // --sort=WORD, -S, -U
+  sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U
+  time-type       : time-kind = TimeMtime // --time=WORD, -c, -u
   one-entry       : bool = False // -1
 
 // ---------------------------------------------------------------------------
@@ -282,7 +310,12 @@ val usage = [
     "  -r, --reverse                reverse order while sorting",
     "  -R, --recursive              list subdirectories recursively",
     "  -S                           sort by file size, largest first",
-    "      --sort=WORD              sort by WORD: none (-U), name, size (-S)",
+    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t)",
+    "  -t                           sort by time, newest first; see --time",
+    "      --time=WORD              select which timestamp to use with -t:",
+    "                               mtime (default), atime (-u), ctime (-c)",
+    "  -c                           with -t: sort by ctime (status change time)",
+    "  -u                           with -t: sort by atime (access time)",
     "  -U                           do not sort; list entries in directory order",
     "  -1                           list one file per line",
     "      --help                   show this help and exit",
@@ -346,6 +379,11 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
         Nothing  -> InvalidFlag("--sort=" ++ sort-str)
     Cons("--recursive", rest) ->
       parse-args(rest, opts(recurse = True), paths)
+    Cons(arg, rest) | arg.starts-with("--time=").bool ->
+      val time-str = arg.slice.drop(7).string
+      match parse-time-kind(time-str)
+        Just(tk) -> parse-args(rest, opts(time-type = tk), paths)
+        Nothing  -> InvalidFlag("--time=" ++ time-str)
     Cons("--file-type", rest) ->
       parse-args(rest, opts(indicator = IndicatorFileType), paths)
     Cons(arg, rest) | arg.starts-with("--indicator-style=").bool ->
@@ -373,6 +411,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'a' -> False
           'A' -> False
           'B' -> False
+          'c' -> False
           'C' -> False
           'd' -> False
           'f' -> False
@@ -383,6 +422,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'r' -> False
           'R' -> False
           'S' -> False
+          't' -> False
+          'u' -> False
           'U' -> False
           '1' -> False
           _   -> True
@@ -394,6 +435,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'a' -> o(show-all = True, almost-all = False)
               'A' -> o(almost-all = True, show-all = False)
               'B' -> o(ignore-backups = True)
+              'c' -> o(time-type = TimeCtime)
               'C' -> o(force-columns = True, one-entry = False)
               'd' -> o(dir-only = True)
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
@@ -406,6 +448,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'r' -> o(reverse = True)
               'R' -> o(recurse = True)
               'S' -> o(sort-by = SortSize)
+              't' -> o(sort-by = SortTime)
+              'u' -> o(time-type = TimeAtime)
               'U' -> o(sort-by = SortNone)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
@@ -421,6 +465,13 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
 // ---------------------------------------------------------------------------
 // Sorting — simple insertion sort, fine for directory listings.
 // ---------------------------------------------------------------------------
+
+// Get the timestamp for a file based on the time-kind option
+fun get-timestamp(p : string, tk : time-kind) : fsys int
+  match tk
+    TimeMtime -> get-mtime(p)
+    TimeAtime -> get-atime(p)
+    TimeCtime -> get-ctime(p)
 
 fun insertby(x : a, xs : list<a>, cmp : (a, a) -> order) : list<a>
   match xs
@@ -515,6 +566,15 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
               else with-size.sortby fn(a, b)
                 match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
       s.map(fn(e) (e.fst, e.snd))
+    SortTime ->
+      val with-time = ignored.map fn(e)
+        val ts = get-timestamp((dir-path / e.thd.path).string, opts.time-type)
+        (e.fst, e.snd, ts)
+      val s = if opts.reverse then with-time.sortby fn(a, b)
+                match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
+              else with-time.sortby fn(a, b)
+                match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
+      s.map(fn(e) (e.fst, e.snd))
   (sorted, 0)
 
 // Format inode for display, right-justified to given width
@@ -571,6 +631,13 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
                 else with-size.sortby fn(a, b)
                   match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.entry-name, b.fst.entry-name); c -> c }
         s.map(fn(e) e.fst)
+      SortTime ->
+        val with-time = visible-dirs.map(fn(de) (de, get-timestamp((dir-path / de.entry-name.path).string, opts.time-type)))
+        val s = if opts.reverse then with-time.sortby fn(a, b)
+                  match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.entry-name, a.fst.entry-name); c -> c }
+                else with-time.sortby fn(a, b)
+                  match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.entry-name, b.fst.entry-name); c -> c }
+        s.map(fn(e) e.fst)
     sorted-dirs.foldl(code) fn(acc, de)
       echoln("")
       val sub-path = (dir-path.string ++ "/" ++ de.entry-name).path
@@ -586,7 +653,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABCfFdiIprRSU1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABcCfFdiIprRStUu1] [--help] [--version] [file ...]"
 
 fun main()
   val code = status
@@ -635,6 +702,13 @@ fun main()
                     else with-size.sortby fn(a, b)
                       match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
             s.map(fn(e) (e.fst, e.snd))
+          SortTime ->
+            val with-time = file-entries.map(fn(e) (e.fst, e.snd, get-timestamp(e.thd, opts.time-type)))
+            val s = if opts.reverse then with-time.sortby fn(a, b)
+                      match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
+                    else with-time.sortby fn(a, b)
+                      match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
+            s.map(fn(e) (e.fst, e.snd))
         val sorted-file-names = format-entries(sorted-file-entries, opts)
         val use-columns = if opts.one-entry then False
                           elif opts.force-columns then True
@@ -652,6 +726,11 @@ fun main()
             val with-size = dirs.map(fn(t) (t, get-size((t.snd).string)))
             val s = if opts.reverse then with-size.sortby(fn(a, b) cmp(a.snd, b.snd))
                     else with-size.sortby(fn(a, b) cmp(b.snd, a.snd))
+            s.map(fn(e) e.fst)
+          SortTime ->
+            val with-time = dirs.map(fn(t) (t, get-timestamp((t.snd).string, opts.time-type)))
+            val s = if opts.reverse then with-time.sortby(fn(a, b) cmp(a.snd, b.snd))
+                    else with-time.sortby(fn(a, b) cmp(b.snd, a.snd))
             s.map(fn(e) e.fst)
           _ ->
             if opts.reverse then dirs.reverse

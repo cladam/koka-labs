@@ -1,12 +1,12 @@
 /*
  * dirinfo.c — C23 directory info utility
  *
- * Demonstrates: lstat (inode, size), opendir/readdir (listing).
+ * Exploring lstat (inode, size), opendir/readdir (listing).
  * Functional style: pure functions return values, no global state.
  * 
  * Exploring clean C23 to dig deeper on the FFI functions needed for --inode
  *
- * Build:  gcc -std=c2x -Wall -Wextra -pedantic -o dirinfo
+ * Build:  gcc -std=c2x -Wall -Wextra -pedantic -o dirinfo dirinfo.c
  * Usage:  ./dirinfo [directory]
  */
 #include <dirent.h>

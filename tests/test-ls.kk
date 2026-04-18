@@ -265,6 +265,48 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(ns)
 
+    test("parse-args -t enables sort-time")
+      val st = match parse-args(["-t"])
+        Parsed(opts, _) -> opts.sort-by.is-sortTime
+        _ -> False
+      assert/is-true(st)
+
+    test("parse-args -c sets time-type to ctime")
+      val ct = match parse-args(["-c"])
+        Parsed(opts, _) -> opts.time-type.is-timeCtime
+        _ -> False
+      assert/is-true(ct)
+
+    test("parse-args -u sets time-type to atime")
+      val at = match parse-args(["-u"])
+        Parsed(opts, _) -> opts.time-type.is-timeAtime
+        _ -> False
+      assert/is-true(at)
+
+    test("parse-args --sort=time enables sort-time")
+      val st = match parse-args(["--sort=time"])
+        Parsed(opts, _) -> opts.sort-by.is-sortTime
+        _ -> False
+      assert/is-true(st)
+
+    test("parse-args --time=atime sets time-type")
+      val at = match parse-args(["--time=atime"])
+        Parsed(opts, _) -> opts.time-type.is-timeAtime
+        _ -> False
+      assert/is-true(at)
+
+    test("parse-args --time=ctime sets time-type")
+      val ct = match parse-args(["--time=ctime"])
+        Parsed(opts, _) -> opts.time-type.is-timeCtime
+        _ -> False
+      assert/is-true(ct)
+
+    test("parse-args --time=bogus returns InvalidFlag")
+      val invalid = match parse-args(["--time=bogus"])
+        InvalidFlag(_) -> True
+        _ -> False
+      assert/is-true(invalid)
+
     test("parse-args -F enables classify")
       val ft = match parse-args(["-F"])
         Parsed(opts, _) -> opts.classify.is-classifyAlways

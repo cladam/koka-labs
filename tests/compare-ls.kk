@@ -228,3 +228,34 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-1SF", ".")
       val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, classify = ClassifyAlways, one-entry = True))
       assert/is-true(gnu == koka)
+
+    // --- time sort comparison tests ---
+    itest("-1t matches GNU ls -1t")
+      val gnu    = run-gnu-ls("-1t", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1tr matches GNU ls -1tr")
+      val gnu    = run-gnu-ls("-1tr", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1t on subdirectory matches GNU ls -1t")
+      val gnu    = run-gnu-ls("-1t", "src")
+      val koka   = run-koka-ls("src".path, Options(sort-by = SortTime, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1tc (sort by ctime) matches GNU ls -1tc")
+      val gnu    = run-gnu-ls("-1tc", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, time-type = TimeCtime, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1tu (sort by atime) matches GNU ls -1tu")
+      val gnu    = run-gnu-ls("-1tu", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, time-type = TimeAtime, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1t --time=ctime matches GNU ls")
+      val gnu    = run-gnu-ls("-1t --time=ctime", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, time-type = TimeCtime, one-entry = True))
+      assert/is-true(gnu == koka)
