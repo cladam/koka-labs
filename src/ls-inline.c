@@ -186,19 +186,38 @@ static kk_integer_t kk_os_get_size(kk_string_t path, kk_context_t* ctx) {
 }
 
 /*
-  get-mtime/get-atime/get-ctime: Get file timestamps as seconds since epoch.
+  get-mtime/get-atime/get-ctime: Get file timestamps as nanoseconds since epoch.
+  Returns seconds * 1_000_000_000 + nanoseconds for full sub-second precision.
+  GNU ls uses nanoseconds for sorting, so we need this to match its ordering.
   Returns 0 on error. Uses lstat so symlinks return their own metadata.
   macOS uses st_mtimespec; Linux uses st_mtim.
 */
 #ifdef __APPLE__
-  #define KK_ST_MTIME(st) ((st).st_mtimespec.tv_sec)
-  #define KK_ST_ATIME(st) ((st).st_atimespec.tv_sec)
-  #define KK_ST_CTIME(st) ((st).st_ctimespec.tv_sec)
+  #define KK_ST_MTIME_SEC(st)  ((st).st_mtimespec.tv_sec)
+  #define KK_ST_MTIME_NSEC(st) ((st).st_mtimespec.tv_nsec)
+  #define KK_ST_ATIME_SEC(st)  ((st).st_atimespec.tv_sec)
+  #define KK_ST_ATIME_NSEC(st) ((st).st_atimespec.tv_nsec)
+  #define KK_ST_CTIME_SEC(st)  ((st).st_ctimespec.tv_sec)
+  #define KK_ST_CTIME_NSEC(st) ((st).st_ctimespec.tv_nsec)
 #else
-  #define KK_ST_MTIME(st) ((st).st_mtim.tv_sec)
-  #define KK_ST_ATIME(st) ((st).st_atim.tv_sec)
-  #define KK_ST_CTIME(st) ((st).st_ctim.tv_sec)
+  #define KK_ST_MTIME_SEC(st)  ((st).st_mtim.tv_sec)
+  #define KK_ST_MTIME_NSEC(st) ((st).st_mtim.tv_nsec)
+  #define KK_ST_ATIME_SEC(st)  ((st).st_atim.tv_sec)
+  #define KK_ST_ATIME_NSEC(st) ((st).st_atim.tv_nsec)
+  #define KK_ST_CTIME_SEC(st)  ((st).st_ctim.tv_sec)
+  #define KK_ST_CTIME_NSEC(st) ((st).st_ctim.tv_nsec)
 #endif
+
+// Combine seconds and nanoseconds into a single Koka integer:
+// sec * 1_000_000_000 + nsec
+// Koka integers are arbitrary precision, so no overflow risk.
+static kk_integer_t kk_time_to_ns(time_t sec, long nsec, kk_context_t* ctx) {
+  kk_integer_t ksec  = kk_integer_from_int64((int64_t)sec, ctx);
+  kk_integer_t kbil  = kk_integer_from_int64(1000000000LL, ctx);
+  kk_integer_t knsec = kk_integer_from_int64((int64_t)nsec, ctx);
+  kk_integer_t prod  = kk_integer_mul(ksec, kbil, ctx);
+  return kk_integer_add(prod, knsec, ctx);
+}
 
 static kk_integer_t kk_os_get_mtime(kk_string_t path, kk_context_t* ctx) {
   struct stat st = { 0 };
@@ -208,7 +227,7 @@ static kk_integer_t kk_os_get_mtime(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return kk_integer_from_int(0, ctx);
-  return kk_integer_from_int64((int64_t)KK_ST_MTIME(st), ctx);
+  return kk_time_to_ns(KK_ST_MTIME_SEC(st), KK_ST_MTIME_NSEC(st), ctx);
 }
 
 static kk_integer_t kk_os_get_atime(kk_string_t path, kk_context_t* ctx) {
@@ -219,7 +238,7 @@ static kk_integer_t kk_os_get_atime(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return kk_integer_from_int(0, ctx);
-  return kk_integer_from_int64((int64_t)KK_ST_ATIME(st), ctx);
+  return kk_time_to_ns(KK_ST_ATIME_SEC(st), KK_ST_ATIME_NSEC(st), ctx);
 }
 
 static kk_integer_t kk_os_get_ctime(kk_string_t path, kk_context_t* ctx) {
@@ -230,7 +249,7 @@ static kk_integer_t kk_os_get_ctime(kk_string_t path, kk_context_t* ctx) {
   }
   kk_string_drop(path, ctx);
   if (err != 0) return kk_integer_from_int(0, ctx);
-  return kk_integer_from_int64((int64_t)KK_ST_CTIME(st), ctx);
+  return kk_time_to_ns(KK_ST_CTIME_SEC(st), KK_ST_CTIME_NSEC(st), ctx);
 }
 
 /*

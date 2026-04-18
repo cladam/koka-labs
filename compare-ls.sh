@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="compare-ls"
+ls_binary="${1:-gls}" # gls on my mac
+source="tests/${name}.kk"
+
+if [ ! -f "$source" ]; then
+  echo "Error: ${source} not found" >&2
+  exit 1
+fi
+
+# Build and capture output; only show it on failure
+build_output=$(koka "$source" 2>&1)
+
+binary=$(echo "$build_output" | grep "^created :" | awk '{print $3}')
+
+if [ -z "$binary" ]; then
+  echo "$build_output" >&2
+  echo "Error: build failed" >&2
+  exit 1
+fi
+
+# Run all tests
+exec "./${binary}" "$ls_binary"
+
