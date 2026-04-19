@@ -307,6 +307,30 @@ pub fun main() : io ()
         _ -> False
       assert/is-true(invalid)
 
+    test("parse-args -X enables sort-extension")
+      val sx = match parse-args(["-X"])
+        Parsed(opts, _) -> opts.sort-by.is-sortExtension
+        _ -> False
+      assert/is-true(sx)
+
+    test("parse-args --sort=extension enables sort-extension")
+      val sx = match parse-args(["--sort=extension"])
+        Parsed(opts, _) -> opts.sort-by.is-sortExtension
+        _ -> False
+      assert/is-true(sx)
+
+    test("get-extension of README.md is .md")
+      assert/is-true(get-extension("README.md") == ".md")
+
+    test("get-extension of Makefile is empty")
+      assert/is-true(get-extension("Makefile") == "")
+
+    test("get-extension of archive.tar.gz is .gz")
+      assert/is-true(get-extension("archive.tar.gz") == ".gz")
+
+    test("get-extension of .gitignore is .gitignore")
+      assert/is-true(get-extension(".gitignore") == ".gitignore")
+
     test("parse-args -F enables classify")
       val ft = match parse-args(["-F"])
         Parsed(opts, _) -> opts.classify.is-classifyAlways

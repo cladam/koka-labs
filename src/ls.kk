@@ -145,6 +145,7 @@ pub type sort-key
   SortSize       // -S: largest first
   SortTime       // -t: newest first
   SortNone       // -U: directory order
+  SortExtension  // -X: by extension
 
 pub type time-kind
   TimeMtime      // default: modification time
@@ -188,6 +189,7 @@ fun parse-sort-key(s : string) : maybe<sort-key>
     "name"      -> Just(SortName)
     "size"      -> Just(SortSize)
     "time"      -> Just(SortTime)
+    "extension" -> Just(SortExtension)
     _           -> Nothing
 
 fun parse-time-kind(s : string) : maybe<time-kind>
@@ -215,7 +217,7 @@ pub struct options
   reverse         : bool = False // -r
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
-  sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U
+  sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
   time-type       : time-kind = TimeMtime // --time=WORD, -c, -u
   one-entry       : bool = False // -1
 
@@ -310,13 +312,14 @@ val usage = [
     "  -r, --reverse                reverse order while sorting",
     "  -R, --recursive              list subdirectories recursively",
     "  -S                           sort by file size, largest first",
-    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t)",
+    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t), extension (-X)",
     "  -t                           sort by time, newest first; see --time",
     "      --time=WORD              select which timestamp to use with -t:",
     "                               mtime (default), atime (-u), ctime (-c)",
     "  -c                           with -t: sort by ctime (status change time)",
     "  -u                           with -t: sort by atime (access time)",
     "  -U                           do not sort; list entries in directory order",
+    "  -X                           sort alphabetically by entry extension",
     "  -1                           list one file per line",
     "      --help                   show this help and exit",
     "      --version                show version and exit"
@@ -425,6 +428,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           't' -> False
           'u' -> False
           'U' -> False
+          'X' -> False
           '1' -> False
           _   -> True
       match bad
@@ -451,6 +455,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               't' -> o(sort-by = SortTime)
               'u' -> o(time-type = TimeAtime)
               'U' -> o(sort-by = SortNone)
+              'X' -> o(sort-by = SortExtension)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
           if has-I then
@@ -472,6 +477,26 @@ fun get-timestamp(p : string, tk : time-kind) : fsys int
     TimeMtime -> get-mtime(p)
     TimeAtime -> get-atime(p)
     TimeCtime -> get-ctime(p)
+
+// Get the extension of a filename for -X sorting.
+// GNU ls uses strrchr(name, '.') — the part from the last '.' onward.
+// Files with no '.' have an empty extension and sort first.
+pub fun get-extension(name : string) : string
+  val chars = name.list
+  val rev = chars.reverse
+  match rev.index-of(fn(c) c == '.')
+    -1 -> ""   // no dot → empty extension
+    n  -> rev.take(n + 1).reverse.string  // includes the dot
+
+// Compare two names by extension, with name tiebreaker.
+// This matches GNU ls cmp_extension: compare from the last '.',
+// then fall back to full name comparison.
+fun cmp-extension(a : string, b : string) : order
+  val ea = get-extension(a)
+  val eb = get-extension(b)
+  match cmp(ea, eb)
+    Eq -> cmp(a, b)
+    c  -> c
 
 fun insertby(x : a, xs : list<a>, cmp : (a, a) -> order) : list<a>
   match xs
@@ -575,6 +600,10 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
               else with-time.sortby fn(a, b)
                 match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
       s.map(fn(e) (e.fst, e.snd))
+    SortExtension ->
+      val s = if opts.reverse then ignored.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+              else ignored.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+      s.map(fn(e) (e.fst, e.snd))
   (sorted, 0)
 
 // Format inode for display, right-justified to given width
@@ -638,6 +667,9 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
                 else with-time.sortby fn(a, b)
                   match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.entry-name, b.fst.entry-name); c -> c }
         s.map(fn(e) e.fst)
+      SortExtension ->
+        if opts.reverse then visible-dirs.sortby(fn(a, b) cmp-extension(b.entry-name, a.entry-name))
+        else visible-dirs.sortby(fn(a, b) cmp-extension(a.entry-name, b.entry-name))
     sorted-dirs.foldl(code) fn(acc, de)
       echoln("")
       val sub-path = (dir-path.string ++ "/" ++ de.entry-name).path
@@ -653,7 +685,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABcCfFdiIprRStUu1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABcCfFdiIprRStUuX1] [--help] [--version] [file ...]"
 
 fun main()
   val code = status
@@ -709,6 +741,10 @@ fun main()
                     else with-time.sortby fn(a, b)
                       match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
             s.map(fn(e) (e.fst, e.snd))
+          SortExtension ->
+            val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+                    else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+            s.map(fn(e) (e.fst, e.snd))
         val sorted-file-names = format-entries(sorted-file-entries, opts)
         val use-columns = if opts.one-entry then False
                           elif opts.force-columns then True
@@ -732,6 +768,9 @@ fun main()
             val s = if opts.reverse then with-time.sortby(fn(a, b) cmp(a.snd, b.snd))
                     else with-time.sortby(fn(a, b) cmp(b.snd, a.snd))
             s.map(fn(e) e.fst)
+          SortExtension ->
+            if opts.reverse then dirs.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+            else dirs.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
           _ ->
             if opts.reverse then dirs.reverse
             else dirs  // already in argument order, which is fine

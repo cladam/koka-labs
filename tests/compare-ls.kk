@@ -259,3 +259,18 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-1t --time=ctime", ".")
       val koka   = run-koka-ls(".".path, Options(sort-by = SortTime, time-type = TimeCtime, one-entry = True))
       assert/is-true(gnu == koka)
+
+    itest("-1X matches GNU ls -1X")
+      val gnu    = run-gnu-ls("-1X", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortExtension, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1Xr matches GNU ls -1Xr")
+      val gnu    = run-gnu-ls("-1Xr", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortExtension, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1X on subdirectory matches GNU ls -1X")
+      val gnu    = run-gnu-ls("-1X", "src")
+      val koka   = run-koka-ls("src".path, Options(sort-by = SortExtension, one-entry = True))
+      assert/is-true(gnu == koka)
