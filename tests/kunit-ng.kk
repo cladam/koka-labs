@@ -46,7 +46,7 @@
  *       suite("bar", src/bar/tests)
 */
 
-extern kunit-process-exit(code : int) : io ()
+pub extern process-exit(code : int) : io ()
   c inline "exit(kk_integer_clamp32(#1,kk_context()))"
 
 // ---------------------------------------------------------------------------
@@ -85,8 +85,8 @@ pub effect kassertion
   fun fatal(message:string): ()
 
 pub effect kunit
-  fun test(test-name:string, body: () -> <kassertion, kscenario> (), ?kk-module:string) : ()
-  fun skip(test-name:string, body: () -> <kassertion, kscenario> (), ?kk-module:string) : ()
+  fun test(test-name:string, body: () -> <pure,kassertion, kscenario> (), ?kk-module:string) : ()
+  fun skip(test-name:string, body: () -> <pure,kassertion, kscenario> (), ?kk-module:string) : ()
 
 pub effect kscenario
   fun scenario(inputs:a, ?show: a -> string) : ()
@@ -110,8 +110,8 @@ pub struct test-result
 // Assertions
 // ---------------------------------------------------------------------------
 
-pub fun assert/equal(expected:a, actual:a, ?(==):(a,a) -> bool, ?show:a -> string, ?kk-file-line:string) : kassertion ()
-  if expected == actual
+pub fun assert/equal(expected:a, actual:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if eq(expected, actual)
     then pass()
     else fail(
         assertion-function-name = "assert/equal",
@@ -119,8 +119,8 @@ pub fun assert/equal(expected:a, actual:a, ?(==):(a,a) -> bool, ?show:a -> strin
         expected = expected.show,
         actually = actual.show)
 
-pub fun assert/not-equal(expected:a, actual:a, ?(==):(a,a) -> bool, ?show:a -> string, ?kk-file-line:string) : kassertion ()
-  if !(expected == actual)
+pub fun assert/not-equal(expected:a, actual:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if !eq(expected, actual)
     then pass()
     else fail(
         assertion-function-name = "assert/not-equal",
@@ -128,7 +128,7 @@ pub fun assert/not-equal(expected:a, actual:a, ?(==):(a,a) -> bool, ?show:a -> s
         expected = "not " ++ expected.show,
         actually = actual.show)
 
-pub fun assert/is-true(actual:bool, ?kk-file-line:string) : kassertion ()
+pub fun assert/is-true(actual:bool, ?kk-file-line:string) : <pure,kassertion> ()
   if actual
     then pass()
     else fail(
@@ -137,7 +137,7 @@ pub fun assert/is-true(actual:bool, ?kk-file-line:string) : kassertion ()
         expected = "True",
         actually = "False")
 
-pub fun assert/is-false(actual:bool, ?kk-file-line:string) : kassertion ()
+pub fun assert/is-false(actual:bool, ?kk-file-line:string) : <pure,kassertion> ()
   if !actual
     then pass()
     else fail(
@@ -150,8 +150,8 @@ pub fun assert/is-false(actual:bool, ?kk-file-line:string) : kassertion ()
 // Collection assertions
 // ---------------------------------------------------------------------------
 
-pub fun assert/contains(collection:list<a>, expected:a, ?(==):(a,a) -> bool, ?show:a -> string, ?kk-file-line:string) : kassertion ()
-  if collection.any(fn(item) item == expected)
+pub fun assert/contains(collection:list<a>, expected:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if collection.any(fn(item) eq(item, expected))
     then pass()
     else fail(
         assertion-function-name = "assert/contains",
@@ -159,8 +159,8 @@ pub fun assert/contains(collection:list<a>, expected:a, ?(==):(a,a) -> bool, ?sh
         expected = "collection to contain " ++ expected.show,
         actually = collection.map(show).join(", "))
 
-pub fun assert/not-contains(collection:list<a>, expected:a, ?(==):(a,a) -> bool, ?show:a -> string, ?kk-file-line:string) : kassertion ()
-  if !collection.any(fn(item) item == expected)
+pub fun assert/not-contains(collection:list<a>, expected:a, ?eq:(a,a) -> pure bool, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
+  if !collection.any(fn(item) eq(item, expected))
     then pass()
     else fail(
         assertion-function-name = "assert/not-contains",
@@ -168,7 +168,7 @@ pub fun assert/not-contains(collection:list<a>, expected:a, ?(==):(a,a) -> bool,
         expected = "collection to not contain " ++ expected.show,
         actually = collection.map(show).join(", "))
 
-pub fun assert/empty(collection:list<a>, ?show:a -> string, ?kk-file-line:string) : kassertion ()
+pub fun assert/empty(collection:list<a>, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
   match collection
     Nil -> pass()
     _   -> fail(
@@ -177,7 +177,7 @@ pub fun assert/empty(collection:list<a>, ?show:a -> string, ?kk-file-line:string
         expected = "empty collection",
         actually = collection.map(show).join(", "))
 
-pub fun assert/not-empty(collection:list<a>, ?kk-file-line:string) : kassertion ()
+pub fun assert/not-empty(collection:list<a>, ?kk-file-line:string) : <pure,kassertion> ()
   match collection
     Nil -> fail(
         assertion-function-name = "assert/not-empty",
@@ -190,7 +190,7 @@ pub fun assert/not-empty(collection:list<a>, ?kk-file-line:string) : kassertion 
 // Numeric assertions
 // ---------------------------------------------------------------------------
 
-pub fun assert/in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> order, ?show:a -> string, ?kk-file-line:string) : kassertion ()
+pub fun assert/in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> pure order, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
   if cmp(actual, low) != Lt && cmp(actual, high) != Gt
     then pass()
     else fail(
@@ -199,7 +199,7 @@ pub fun assert/in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> order, ?show:a ->
         expected = show(low) ++ " .. " ++ show(high),
         actually = actual.show)
 
-pub fun assert/not-in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> order, ?show:a -> string, ?kk-file-line:string) : kassertion ()
+pub fun assert/not-in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> pure order, ?show:a -> pure string, ?kk-file-line:string) : <pure,kassertion> ()
   if cmp(actual, low) == Lt || cmp(actual, high) == Gt
     then pass()
     else fail(
@@ -212,7 +212,7 @@ pub fun assert/not-in-range(actual:a, low:a, high:a, ?cmp:(a,a) -> order, ?show:
 // Scenarios
 // ---------------------------------------------------------------------------
 
-pub fun scenarios(inputs: () -> list<a>, body: a -> kassertion (), ?show: a -> string) : (() -> <kassertion, kscenario> ())
+pub fun scenarios(inputs: () -> list<a>, body: a -> <pure,kassertion> (), ?show: a -> string) : (() -> <pure, kassertion, kscenario> ())
   fn() inputs().list/foreach(fn(i)
     scenario(i)
     body(i)
@@ -297,7 +297,7 @@ fun report-results(results: list<test-result>) : io ()
   println("")
   println(bold("Results: ") ++ green(passed.show ++ " passed") ++ ", " ++ (if failed > 0 then red(failed.show ++ " failed") else "0 failed") ++ ", " ++ (if skipped > 0 then yellow(skipped.show ++ " skipped") else "0 skipped") ++ " (" ++ total.show ++ " total)")
 
-  if failed > 0 then kunit-process-exit(1)
+  if failed > 0 then process-exit(1)
 
 // ---------------------------------------------------------------------------
 // Suite runner — handles ksuite effect, collects all results, reports once

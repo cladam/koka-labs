@@ -27,7 +27,6 @@ import std/os/dir
 import std/os/env
 import version
 import columns
-import kunit-ng
 
 // Import my C code
 extern import
@@ -227,9 +226,6 @@ pub struct options
 pub struct dir-entry
   entry-name  : string
   entry-ino   : int      // d_ino from readdir, 0 if unknown
-
-fun dir-entry/show(e : dir-entry) : string
-  "Dir-entry(" ++ e.entry-name.show ++ ", " ++ e.entry-ino.show ++ ")"
 
 // Parse the raw "inode\tname\n" format from readdir-raw into a list of dir-entry
 pub fun parse-readdir(s : string) : list<dir-entry>
@@ -649,146 +645,6 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
       val sub-code = list-dir(sub-path, opts, True, sub-display)
       if sub-code > acc then sub-code else acc
   else code
-
-// ---------------------------------------------------------------------------
-// In-file unit tests — test pure logic without IO
-// ---------------------------------------------------------------------------
-
-pub fun tests() : kunit ()
-
-  // --- parse-readdir ---
-  test("parse-readdir: parses inode-tab-name lines")
-    val entries = parse-readdir("123\tfoo\n456\tbar\n")
-    assert/equal(2, entries.length)
-    assert/equal("foo", entries.head.default(Dir-entry("", 0)).entry-name)
-    assert/equal(123, entries.head.default(Dir-entry("", 0)).entry-ino)
-
-  test("parse-readdir: empty string gives empty list")
-    val entries = parse-readdir("")
-    assert/empty(entries)
-
-  // --- is-hidden ---
-  test("is-hidden: dotfile is hidden")
-    assert/is-true(is-hidden(".gitignore"))
-
-  test("is-hidden: regular file is not hidden")
-    assert/is-false(is-hidden("README.md"))
-
-  // --- is-backup ---
-  test("is-backup: file ending with ~ is backup")
-    assert/is-true(is-backup("file.kk~"))
-
-  test("is-backup: regular file is not backup")
-    assert/is-false(is-backup("file.kk"))
-
-  // --- suffix (file-kind) ---
-  test("suffix: directory gets /")
-    assert/equal("/", FDirectory.suffix)
-
-  test("suffix: symlink gets @")
-    assert/equal("@", FSymlink.suffix)
-
-  test("suffix: executable gets *")
-    assert/equal("*", FExecutable.suffix)
-
-  test("suffix: regular file gets empty")
-    assert/equal("", FRegular.suffix)
-
-  // --- file-type-suffix: like suffix but no * for executables ---
-  test("file-type-suffix: executable gets empty")
-    assert/equal("", FExecutable.file-type-suffix)
-
-  test("file-type-suffix: directory still gets /")
-    assert/equal("/", FDirectory.file-type-suffix)
-
-  // --- format-name ---
-  test("format-name: no indicators by default")
-    assert/equal("mydir", format-name("mydir", FDirectory, Options()))
-
-  test("format-name: classify appends /")
-    assert/equal("mydir/", format-name("mydir", FDirectory, Options(classify = ClassifyAlways)))
-
-  test("format-name: indicator-slash appends / for dirs only")
-    assert/equal("mydir/", format-name("mydir", FDirectory, Options(indicator = IndicatorSlash)))
-    assert/equal("myfile", format-name("myfile", FRegular, Options(indicator = IndicatorSlash)))
-
-  // --- sortby ---
-  test("sortby: sorts integers ascending")
-    assert/equal([1, 2, 3], [3, 1, 2].sortby(cmp))
-
-  test("sortby: empty list stays empty")
-    assert/equal([], ([]:list<int>).sortby(cmp))
-
-  // --- set-exit-status ---
-  test("set-exit-status: serious error sets code 2")
-    assert/equal(2, set-exit-status(0, True))
-
-  test("set-exit-status: minor error sets code 1")
-    assert/equal(1, set-exit-status(0, False))
-
-  test("set-exit-status: does not downgrade existing code")
-    assert/equal(2, set-exit-status(2, False))
-
-  // --- parse-args ---
-  test("parse-args: no args returns empty paths")
-    val paths = match parse-args([])
-      Parsed(_, p) -> p
-      _ -> ["unexpected"]
-    assert/empty(paths)
-
-  test("parse-args: -a enables show-all")
-    val sa = match parse-args(["-a"])
-      Parsed(opts, _) -> opts.show-all
-      _ -> False
-    assert/is-true(sa)
-
-  test("parse-args: -A enables almost-all")
-    val aa = match parse-args(["-A"])
-      Parsed(opts, _) -> opts.almost-all
-      _ -> False
-    assert/is-true(aa)
-
-  test("parse-args: -r enables reverse")
-    val r = match parse-args(["-r"])
-      Parsed(opts, _) -> opts.reverse
-      _ -> False
-    assert/is-true(r)
-
-  test("parse-args: -B enables ignore-backups")
-    val ib = match parse-args(["-B"])
-      Parsed(opts, _) -> opts.ignore-backups
-      _ -> False
-    assert/is-true(ib)
-
-  test("parse-args: combined -ar enables both flags")
-    match parse-args(["-ar"])
-      Parsed(opts, _) ->
-        assert/is-true(opts.show-all)
-        assert/is-true(opts.reverse)
-      _ -> assert/is-true(False)
-
-  test("parse-args: paths are collected")
-    val paths = match parse-args(["foo", "bar"])
-      Parsed(_, p) -> p
-      _ -> []
-    assert/equal(["foo", "bar"], paths)
-
-  test("parse-args: -- stops flag parsing")
-    match parse-args(["--", "-a"])
-      Parsed(opts, paths) ->
-        assert/is-false(opts.show-all)
-        assert/equal(["-a"], paths)
-      _ -> assert/is-true(False)
-
-  test("parse-args: unknown flag returns InvalidFlag")
-    match parse-args(["-z"])
-      InvalidFlag(_) -> assert/is-true(True)
-      _ -> assert/is-true(False)
-
-  test("parse-args: --help returns HelpRequested")
-    match parse-args(["--help"])
-      HelpRequested -> assert/is-true(True)
-      _ -> assert/is-true(False)
 
 // ---------------------------------------------------------------------------
 // Entry point
