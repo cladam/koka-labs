@@ -274,3 +274,33 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-1X", "src")
       val koka   = run-koka-ls("src".path, Options(sort-by = SortExtension, one-entry = True))
       assert/is-true(gnu == koka)
+
+    itest("-1 --sort=width matches GNU ls -1 --sort=width")
+      val gnu    = run-gnu-ls("-1 --sort=width", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortWidth, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1r --sort=width matches GNU ls -1r --sort=width")
+      val gnu    = run-gnu-ls("-1r --sort=width", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortWidth, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --sort=width on src matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --sort=width", "src")
+      val koka   = run-koka-ls("src".path, Options(sort-by = SortWidth, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1 --group-directories-first matches GNU ls")
+      val gnu    = run-gnu-ls("-1 --group-directories-first", ".")
+      val koka   = run-koka-ls(".".path, Options(group-dirs = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1r --group-directories-first matches GNU ls")
+      val gnu    = run-gnu-ls("-1r --group-directories-first", ".")
+      val koka   = run-koka-ls(".".path, Options(group-dirs = True, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1S --group-directories-first matches GNU ls")
+      val gnu    = run-gnu-ls("-1S --group-directories-first", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, group-dirs = True, one-entry = True))
+      assert/is-true(gnu == koka)

@@ -129,14 +129,14 @@ See [tests/kunit.kk](tests/kunit.kk).
 - [x] `-t, --sort=time` — sort by modification time, newest first
 - [x] `-U, --sort=none` — do not sort; list entries in directory order
 - [ ] `-v, --sort=version` — natural sort of version numbers within text
-- [ ] `-X, --sort=extension` — sort alphabetically by file extension
-- [ ] `--sort=name` — sort by name (default; explicit override)
-- [ ] `--sort=width` — sort by printed width of file name
+- [x] `-X, --sort=extension` — sort alphabetically by file extension
+- [x] `--sort=name` — sort by name (default; explicit override)
+- [x] `--sort=width` — sort by printed width of file name
 - [x] `-c, --time=ctime` — use/sort by status change time
 - [x] `-u, --time=atime` — use/sort by access time
 - [x] `--time=WORD` — select timestamp (atime, ctime, mtime, birth)
 - [x] `-f` — do not sort; enable `-a` and `-U`
-- [ ] `--group-directories-first` — group directories before files
+- [x] `--group-directories-first` — group directories before files
 
 ### Phase 5 — General output formatting
 

@@ -605,3 +605,21 @@ pub fun main() : io ()
     test("parse-readdir handles empty string")
       val entries = parse-readdir("")
       assert/is-true(entries.is-nil)
+
+    // --- parse-args: --sort=width ---
+    test("parse-args --sort=width enables sort-width")
+      val sw = match parse-args(["--sort=width"])
+        Parsed(opts, _) -> opts.sort-by.is-sortWidth
+        _ -> False
+      assert/is-true(sw)
+
+    // --- parse-args: --group-directories-first ---
+    test("parse-args --group-directories-first enables group-dirs")
+      val gd = match parse-args(["--group-directories-first"])
+        Parsed(opts, _) -> opts.group-dirs
+        _ -> False
+      assert/is-true(gd)
+
+    test("Options should not have group-dirs by default")
+      val opts = Options()
+      assert/is-false(opts.group-dirs)

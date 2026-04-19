@@ -146,6 +146,7 @@ pub type sort-key
   SortTime       // -t: newest first
   SortNone       // -U: directory order
   SortExtension  // -X: by extension
+  SortWidth      // --sort=width: by name length
 
 pub type time-kind
   TimeMtime      // default: modification time
@@ -190,6 +191,7 @@ fun parse-sort-key(s : string) : maybe<sort-key>
     "size"      -> Just(SortSize)
     "time"      -> Just(SortTime)
     "extension" -> Just(SortExtension)
+    "width"     -> Just(SortWidth)
     _           -> Nothing
 
 fun parse-time-kind(s : string) : maybe<time-kind>
@@ -219,6 +221,7 @@ pub struct options
   recurse         : bool = False // -R
   sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
   time-type       : time-kind = TimeMtime // --time=WORD, -c, -u
+  group-dirs      : bool = False // --group-directories-first
   one-entry       : bool = False // -1
 
 // ---------------------------------------------------------------------------
@@ -312,10 +315,10 @@ val usage = [
     "  -r, --reverse                reverse order while sorting",
     "  -R, --recursive              list subdirectories recursively",
     "  -S                           sort by file size, largest first",
-    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t), extension (-X)",
+    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t), extension (-X), width",
+    "  --group-directories-first    group directories before files",
     "  -t                           sort by time, newest first; see --time",
-    "      --time=WORD              select which timestamp to use with -t:",
-    "                               mtime (default), atime (-u), ctime (-c)",
+    "      --time=WORD              select which timestamp to use with -t: mtime (default), atime (-u), ctime (-c)",
     "  -c                           with -t: sort by ctime (status change time)",
     "  -u                           with -t: sort by atime (access time)",
     "  -U                           do not sort; list entries in directory order",
@@ -387,6 +390,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       match parse-time-kind(time-str)
         Just(tk) -> parse-args(rest, opts(time-type = tk), paths)
         Nothing  -> InvalidFlag("--time=" ++ time-str)
+    Cons("--group-directories-first", rest) ->
+      parse-args(rest, opts(group-dirs = True), paths)
     Cons("--file-type", rest) ->
       parse-args(rest, opts(indicator = IndicatorFileType), paths)
     Cons(arg, rest) | arg.starts-with("--indicator-style=").bool ->
@@ -576,34 +581,43 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
   val ignored  = match opts.ignore-patterns
     Nil -> unhidden
     pats -> unhidden.filter(fn(e) not(e.fst.matches-any(pats)))
-  val sorted = match opts.sort-by
-    SortNone -> ignored.map(fn(e) (e.fst, e.snd))
+  // Decorate–sort–undecorate: each branch keeps the original 3-tuple so
+  // --group-directories-first can partition by raw name after sorting.
+  val sorted3 = match opts.sort-by
+    SortNone -> ignored
     SortName ->
-      val s = if opts.reverse then ignored.sortby(fn(a, b) cmp(b.fst, a.fst))
-              else ignored.sortby(fn(a, b) cmp(a.fst, b.fst))
-      s.map(fn(e) (e.fst, e.snd))
+      if opts.reverse then ignored.sortby(fn(a, b) cmp(b.fst, a.fst))
+      else ignored.sortby(fn(a, b) cmp(a.fst, b.fst))
     SortSize ->
-      val with-size = ignored.map fn(e)
-        val sz = get-size((dir-path / e.thd.path).string)
-        (e.fst, e.snd, sz)
-      val s = if opts.reverse then with-size.sortby fn(a, b)
-                match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
-              else with-size.sortby fn(a, b)
-                match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
-      s.map(fn(e) (e.fst, e.snd))
+      val decorated = ignored.map(fn(e) (e, get-size((dir-path / e.thd.path).string)))
+      val s = if opts.reverse then decorated.sortby fn(a, b)
+                match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+              else decorated.sortby fn(a, b)
+                match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+      s.map(fn(e) e.fst)
     SortTime ->
-      val with-time = ignored.map fn(e)
-        val ts = get-timestamp((dir-path / e.thd.path).string, opts.time-type)
-        (e.fst, e.snd, ts)
-      val s = if opts.reverse then with-time.sortby fn(a, b)
-                match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
-              else with-time.sortby fn(a, b)
-                match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
-      s.map(fn(e) (e.fst, e.snd))
+      val decorated = ignored.map(fn(e) (e, get-timestamp((dir-path / e.thd.path).string, opts.time-type)))
+      val s = if opts.reverse then decorated.sortby fn(a, b)
+                match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+              else decorated.sortby fn(a, b)
+                match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+      s.map(fn(e) e.fst)
     SortExtension ->
-      val s = if opts.reverse then ignored.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
-              else ignored.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
-      s.map(fn(e) (e.fst, e.snd))
+      if opts.reverse then ignored.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+      else ignored.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+    SortWidth ->
+      val decorated = ignored.map(fn(e) (e, e.fst.count))
+      val s = if opts.reverse then decorated.sortby fn(a, b)
+                match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+              else decorated.sortby fn(a, b)
+                match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+      s.map(fn(e) e.fst)
+  // --group-directories-first: partition dirs before files, preserving sort
+  val sorted = if opts.group-dirs then
+      val (grp-dirs, grp-files) = sorted3.partition(fn(e) is-directory(dir-path / e.thd.path))
+      (grp-dirs ++ grp-files).map(fn(e) (e.fst, e.snd))
+    else
+      sorted3.map(fn(e) (e.fst, e.snd))
   (sorted, 0)
 
 // Format inode for display, right-justified to given width
@@ -670,6 +684,13 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
       SortExtension ->
         if opts.reverse then visible-dirs.sortby(fn(a, b) cmp-extension(b.entry-name, a.entry-name))
         else visible-dirs.sortby(fn(a, b) cmp-extension(a.entry-name, b.entry-name))
+      SortWidth ->
+        val decorated = visible-dirs.map(fn(de) (de, de.entry-name.count))
+        val s = if opts.reverse then decorated.sortby fn(a, b)
+                  match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.entry-name, a.fst.entry-name); c -> c }
+                else decorated.sortby fn(a, b)
+                  match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.entry-name, b.fst.entry-name); c -> c }
+        s.map(fn(e) e.fst)
     sorted-dirs.foldl(code) fn(acc, de)
       echoln("")
       val sub-path = (dir-path.string ++ "/" ++ de.entry-name).path
@@ -685,7 +706,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABcCfFdiIprRStUuX1] [--help] [--version] [file ...]"
+val short-usage = "usage: ls [-aABcCfFdiIprRStUuX1] [--help] [--version] [--group-directories-first] [file ...]"
 
 fun main()
   val code = status
@@ -745,6 +766,13 @@ fun main()
             val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
                     else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
             s.map(fn(e) (e.fst, e.snd))
+          SortWidth ->
+            val decorated = file-entries.map(fn(e) (e, e.fst.count))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) (e.fst.fst, e.fst.snd))
         val sorted-file-names = format-entries(sorted-file-entries, opts)
         val use-columns = if opts.one-entry then False
                           elif opts.force-columns then True
@@ -771,6 +799,13 @@ fun main()
           SortExtension ->
             if opts.reverse then dirs.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
             else dirs.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+          SortWidth ->
+            val decorated = dirs.map(fn(t) (t, t.fst.count))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
           _ ->
             if opts.reverse then dirs.reverse
             else dirs  // already in argument order, which is fine
