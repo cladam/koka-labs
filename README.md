@@ -1,6 +1,6 @@
 # koka-labs
 
-Exploring the [Koka](https://koka-lang.github.io/koka/doc/index.html) language by rebuilding GNU coreutils — starting with `ls`.
+Exploring the [Koka](https://koka-lang.github.io/koka/doc/index.html) language by rebuilding GNU ls.
 
 The goal is to follow the [GNU coreutils philosophy](https://github.com/coreutils/coreutils/blob/master/src/ls.c), reimplemented piece by piece in Koka's effect-typed, functional style.
 
@@ -21,9 +21,12 @@ cd koka-labs
 
 ### From source
 ```bash
+# use the bash script to run kls
 ./exec-ls ls              # build and run ls (debug)
 ./exec-ls ls /tmp         # with arguments
 ./exec-ls ls -ar /tmp     # with flags
+
+###
 
 # Build and produce a binary
 koka src/ls.kk -o kls
@@ -35,7 +38,6 @@ chmod +x kls
 ### From built binary
 ```bash
 ./kls
-
 # See implemented flags with --help
 ```
 
@@ -49,7 +51,7 @@ xattr -d com.apple.quarantine koka-ls
 
 ### Testing
 
-I am testing koka-ls with both integration and unit tests, see [tests/test-ls.kk](tests/test-ls.kk).
+I am testing kls with both integration and unit tests, see [tests/test-ls.kk](tests/test-ls.kk).
 Integration tests use the `bio` effect to capture `list-dir` output into a string buffer instead of printing to stdout, making output assertions straightforward.
 
 Run all tests with the helper script:
