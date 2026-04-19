@@ -295,44 +295,50 @@ fun file-type-suffix(kind : file-kind) : string
 // ---------------------------------------------------------------------------
 
 val usage = [
-    "Usage: ls [OPTION]... [FILE]...",
+    "Usage: kls [OPTION]... [FILE]...",
     "List information about the FILEs (the current directory by default).",
+    "Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.",
     "",
-    "  -a, --all                    do not ignore entries starting with .(includes . and ..)",
-    "  -A, --almost-all             like -a, but do not list . and ..",
-    "  -B, --ignore-backups         do not list implied entries ending with ~",
-    "  -C                           list entries by columns",
-    "  -d, --directory              list directories themselves, not their contents",
-    "  -F, --classify[=WHEN]        append indicator (one of */=>@|) to entries WHEN",
-    "  -f                           same as -a -U",
-    "  --file-type                  like -F, except do not append '*'",
-    "  --hide=PATTERN               do not list implied entries matching shell PATTERN",
-    "                               (overridden by -a or -A)",
-    "  --indicator-style=WORD       none, slash (-p), file-type, classify (-F)",
-    "  -I, --ignore=PATTERN         do not list entries matching shell PATTERN",
-    "  -i, --inode                  print the index number of each file",
-    "  -p, --indicator-style=slash  append / indicator to directories",
-    "  -r, --reverse                reverse order while sorting",
-    "  -R, --recursive              list subdirectories recursively",
-    "  -S                           sort by file size, largest first",
-    "      --sort=WORD              sort by WORD: none (-U), name, size (-S), time (-t), extension (-X), width",
-    "  --group-directories-first    group directories before files",
-    "  -t                           sort by time, newest first; see --time",
-    "      --time=WORD              select which timestamp to use with -t: mtime (default), atime (-u), ctime (-c)",
-    "  -c                           with -t: sort by ctime (status change time)",
-    "  -u                           with -t: sort by atime (access time)",
-    "  -U                           do not sort; list entries in directory order",
-    "  -X                           sort alphabetically by entry extension",
-    "  -1                           list one file per line",
-    "      --help                   show this help and exit",
-    "      --version                show version and exit"
+    "  -a, --all                  do not ignore entries starting with .",
+    "  -A, --almost-all           like -a, but do not list . and ..",
+    "  -B, --ignore-backups       do not list implied entries ending with ~",
+    "  -C                         list entries by columns",
+    "  -d, --directory            list directories themselves, not their contents",
+    "  -F, --classify[=WHEN]      append indicator (one of */=>@|) to entries WHEN",
+    "  -f                         same as -a -U",
+    "      --file-type            like -F, except do not append '*'",
+    "      --hide=PATTERN         do not list implied entries matching shell PATTERN",
+    "                             (overridden by -a or -A)",
+    "      --indicator-style=WORD",
+    "                             none, slash (-p), file-type, classify (-F)",
+    "  -I, --ignore=PATTERN       do not list entries matching shell PATTERN",
+    "  -i, --inode                print the index number of each file",
+    "  -p, --indicator-style=slash",
+    "                             append / indicator to directories",
+    "  -r, --reverse              reverse order while sorting",
+    "  -R, --recursive            list subdirectories recursively",
+    "  -S                         sort by file size, largest first",
+    "      --sort=WORD            sort by WORD: none (-U), name, size (-S),",
+    "                             time (-t), extension (-X), width",
+    "      --group-directories-first",
+    "                             group directories before files",
+    "  -t                         sort by time, newest first; see --time",
+    "      --time=WORD            select which timestamp to use with -t:",
+    "                             mtime (default), atime (-u), ctime (-c)",
+    "  -c                         with -t: sort by ctime (status change time)",
+    "  -u                         with -t: sort by atime (access time)",
+    "  -U                         do not sort; list entries in directory order",
+    "  -X                         sort alphabetically by entry extension",
+    "  -1                         list one file per line",
+    "      --help                 show this help and exit",
+    "      --version              show version and exit"
 ].join("\n")
 
 fun show-help() : bio ()
   echoln(usage)
 
 fun show-version() : bio ()
-  val program = "koka-ls - directory listing (GNU ls clone in Koka)"
+  val program = "kls - directory listing (GNU ls clone in Koka)"
   echoln(program-name  ++ "@" ++ version)
   echoln("Program: " ++ program)
   echoln("Author: " ++ author)
@@ -706,7 +712,7 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
 // GNU ls with no args simply lists ".", no banners, no decoration.
 // ---------------------------------------------------------------------------
 
-val short-usage = "usage: ls [-aABcCfFdiIprRStUuX1] [--help] [--version] [--group-directories-first] [file ...]"
+val short-usage = "Try 'kls --help' for more information."
 
 fun main()
   val code = status
@@ -716,7 +722,7 @@ fun main()
       HelpRequested -> show-help()
       VersionRequested -> show-version()
       InvalidFlag(flag) ->
-        eprintln("ls: invalid option -- " ++ flag)
+        eprintln("kls: invalid option -- '" ++ flag ++ "'")
         eprintln(short-usage)
         exit(2)
       Parsed(opts, paths) ->
@@ -731,7 +737,7 @@ fun main()
           val err = stat-error((t.snd).string)
           if err.is-empty then True
           else
-            eprintln("ls: cannot access '" ++ t.fst ++ "': " ++ err)
+            eprintln("kls: cannot access '" ++ t.fst ++ "': " ++ err)
             exit-code := set-exit-status(exit-code, serious = False)  // not serious → exit 1
             False
         val (dirs, files) = if opts.dir-only then ([], existing)

@@ -26,15 +26,15 @@ cd koka-labs
 ./exec-ls ls -ar /tmp     # with flags
 
 # Build and produce a binary
-koka src/ls.kk -o koka-ls
-chmod +x koka-ls
+koka src/ls.kk -o kls
+chmod +x kls
 ```
 
 > **Note:** Optimised builds (`koka -O1`/`-O2`) currently segfault due to a Koka compiler bug in `kk_cctx_copy` when stacking effect handlers. Use debug builds for now.
 
 ### From built binary
 ```bash
-./koka-ls
+./kls
 
 # See implemented flags with --help
 ```
