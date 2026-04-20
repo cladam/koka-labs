@@ -770,7 +770,7 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
           else ""
         val ts = format-timestamp(fi.fi-mtime-sec)
         echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
-               ljust(fi.fi-owner, ow) ++ " " ++ ljust(fi.fi-group, gw) ++ "  " ++
+               ljust(fi.fi-owner, ow) ++ " " ++ ljust(fi.fi-group, gw) ++ " " ++
                rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
       Nothing ->
         echoln("? " ++ name)

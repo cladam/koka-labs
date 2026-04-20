@@ -324,3 +324,54 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-1va", ".")
       val koka   = run-koka-ls(".".path, Options(sort-by = SortVersion, show-all = True, one-entry = True))
       assert/is-true(gnu == koka)
+
+    // --- long-format (-l) comparison tests ---
+    itest("-l matches GNU ls -l")
+      val gnu    = run-gnu-ls("-l", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True))
+      assert/is-true(gnu == koka)
+
+    itest("-la matches GNU ls -la")
+      val gnu    = run-gnu-ls("-la", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, show-all = True))
+      assert/is-true(gnu == koka)
+
+    itest("-lA matches GNU ls -lA")
+      val gnu    = run-gnu-ls("-lA", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, almost-all = True))
+      assert/is-true(gnu == koka)
+
+    itest("-lr matches GNU ls -lr")
+      val gnu    = run-gnu-ls("-lr", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, reverse = True))
+      assert/is-true(gnu == koka)
+
+    itest("-li matches GNU ls -li")
+      val gnu    = run-gnu-ls("-li", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, print-inode = True))
+      assert/is-true(gnu == koka)
+
+    itest("-l on src matches GNU ls -l")
+      val gnu    = run-gnu-ls("-l", "src")
+      val koka   = run-koka-ls("src".path, Options(long-format = True))
+      assert/is-true(gnu == koka)
+
+    itest("-l on tests matches GNU ls -l")
+      val gnu    = run-gnu-ls("-l", "tests")
+      val koka   = run-koka-ls("tests".path, Options(long-format = True))
+      assert/is-true(gnu == koka)
+
+    itest("-lS matches GNU ls -lS")
+      val gnu    = run-gnu-ls("-lS", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, sort-by = SortSize))
+      assert/is-true(gnu == koka)
+
+    itest("-lt matches GNU ls -lt")
+      val gnu    = run-gnu-ls("-lt", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, sort-by = SortTime))
+      assert/is-true(gnu == koka)
+
+    itest("-lF matches GNU ls -lF")
+      val gnu    = run-gnu-ls("-lF", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, classify = ClassifyAlways))
+      assert/is-true(gnu == koka)
