@@ -75,6 +75,9 @@ extern get-atime(p : string) : fsys int
 extern get-ctime(p : string) : fsys int
   c "kk_os_get_ctime"
 
+pub extern filevercmp(a : string, b : string) : int
+  c "kk_os_filevercmp"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
@@ -147,6 +150,7 @@ pub type sort-key
   SortNone       // -U: directory order
   SortExtension  // -X: by extension
   SortWidth      // --sort=width: by name length
+  SortVersion    // -v: version sort (natural numeric ordering)
 
 pub type time-kind
   TimeMtime      // default: modification time
@@ -192,6 +196,7 @@ fun parse-sort-key(s : string) : maybe<sort-key>
     "time"      -> Just(SortTime)
     "extension" -> Just(SortExtension)
     "width"     -> Just(SortWidth)
+    "version"   -> Just(SortVersion)
     _           -> Nothing
 
 fun parse-time-kind(s : string) : maybe<time-kind>
@@ -319,7 +324,8 @@ val usage = [
     "  -R, --recursive            list subdirectories recursively",
     "  -S                         sort by file size, largest first",
     "      --sort=WORD            sort by WORD: none (-U), name, size (-S),",
-    "                             time (-t), extension (-X), width",
+    "                             time (-t), extension (-X), version (-v), width",
+    "  -v                         natural sort of (version) numbers within text",
     "      --group-directories-first",
     "                             group directories before files",
     "  -t                         sort by time, newest first; see --time",
@@ -439,6 +445,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           't' -> False
           'u' -> False
           'U' -> False
+          'v' -> False
           'X' -> False
           '1' -> False
           _   -> True
@@ -466,6 +473,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               't' -> o(sort-by = SortTime)
               'u' -> o(time-type = TimeAtime)
               'U' -> o(sort-by = SortNone)
+              'v' -> o(sort-by = SortVersion)
               'X' -> o(sort-by = SortExtension)
               '1' -> o(one-entry = True, force-columns = False)
               _   -> o
@@ -508,6 +516,11 @@ fun cmp-extension(a : string, b : string) : order
   match cmp(ea, eb)
     Eq -> cmp(a, b)
     c  -> c
+
+// Compare two names by version (GNU ls -v), using filevercmp via C FFI.
+fun cmp-version(a : string, b : string) : order
+  val r = filevercmp(a, b)
+  if r < 0 then Lt elif r > 0 then Gt else Eq
 
 fun insertby(x : a, xs : list<a>, cmp : (a, a) -> order) : list<a>
   match xs
@@ -611,6 +624,9 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
     SortExtension ->
       if opts.reverse then ignored.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
       else ignored.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+    SortVersion ->
+      if opts.reverse then ignored.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+      else ignored.sortby(fn(a, b) cmp-version(a.fst, b.fst))
     SortWidth ->
       val decorated = ignored.map(fn(e) (e, e.fst.count))
       val s = if opts.reverse then decorated.sortby fn(a, b)
@@ -690,6 +706,9 @@ pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-pa
       SortExtension ->
         if opts.reverse then visible-dirs.sortby(fn(a, b) cmp-extension(b.entry-name, a.entry-name))
         else visible-dirs.sortby(fn(a, b) cmp-extension(a.entry-name, b.entry-name))
+      SortVersion ->
+        if opts.reverse then visible-dirs.sortby(fn(a, b) cmp-version(b.entry-name, a.entry-name))
+        else visible-dirs.sortby(fn(a, b) cmp-version(a.entry-name, b.entry-name))
       SortWidth ->
         val decorated = visible-dirs.map(fn(de) (de, de.entry-name.count))
         val s = if opts.reverse then decorated.sortby fn(a, b)
@@ -772,6 +791,10 @@ fun main()
             val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
                     else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
             s.map(fn(e) (e.fst, e.snd))
+          SortVersion ->
+            val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+                    else file-entries.sortby(fn(a, b) cmp-version(a.fst, b.fst))
+            s.map(fn(e) (e.fst, e.snd))
           SortWidth ->
             val decorated = file-entries.map(fn(e) (e, e.fst.count))
             val s = if opts.reverse then decorated.sortby fn(a, b)
@@ -805,6 +828,9 @@ fun main()
           SortExtension ->
             if opts.reverse then dirs.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
             else dirs.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+          SortVersion ->
+            if opts.reverse then dirs.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+            else dirs.sortby(fn(a, b) cmp-version(a.fst, b.fst))
           SortWidth ->
             val decorated = dirs.map(fn(t) (t, t.fst.count))
             val s = if opts.reverse then decorated.sortby fn(a, b)

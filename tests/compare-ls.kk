@@ -304,3 +304,23 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-1S --group-directories-first", ".")
       val koka   = run-koka-ls(".".path, Options(sort-by = SortSize, group-dirs = True, one-entry = True))
       assert/is-true(gnu == koka)
+
+    itest("-1v matches GNU ls -1v")
+      val gnu    = run-gnu-ls("-1v", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortVersion, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1vr matches GNU ls -1vr")
+      val gnu    = run-gnu-ls("-1vr", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortVersion, reverse = True, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1v on src matches GNU ls -1v")
+      val gnu    = run-gnu-ls("-1v", "src")
+      val koka   = run-koka-ls("src".path, Options(sort-by = SortVersion, one-entry = True))
+      assert/is-true(gnu == koka)
+
+    itest("-1va matches GNU ls -1va")
+      val gnu    = run-gnu-ls("-1va", ".")
+      val koka   = run-koka-ls(".".path, Options(sort-by = SortVersion, show-all = True, one-entry = True))
+      assert/is-true(gnu == koka)

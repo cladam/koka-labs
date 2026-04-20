@@ -266,3 +266,131 @@ static kk_integer_t kk_os_get_inode(kk_string_t path, kk_context_t* ctx) {
   if (err != 0) return kk_integer_from_int(0, ctx);
   return kk_integer_from_int64((int64_t)st.st_ino, ctx);
 }
+
+// ---------------------------------------------------------------------------
+// filevercmp — version-aware file name comparison (GNU ls -v)
+//
+// Re-implemented from gnulib's filevercmp.c (LGPL-3.0-or-later).
+// Original authors: Ian Jackson, Anthony Towns, FSF.
+// Adapted for Koka FFI: no gnulib deps, uses only standard C.
+//
+// Algorithm (from the GNU coreutils docs):
+//  1. Empty string, ".", ".." sort first; dotfiles before non-dotfiles.
+//  2. File extension suffix is stripped; compare without it first.
+//  3. Core comparison alternates non-digit and digit runs:
+//     - Non-digit: byte-by-byte with custom order:
+//         ~ < end-of-string < letters < other bytes
+//     - Digit: skip leading zeros, compare numerically.
+//  4. If equal without suffix, re-compare with full strings.
+// ---------------------------------------------------------------------------
+#include <ctype.h>
+
+// Return the length of the prefix before the file extension suffix.
+// Suffix matches (\.[A-Za-z~][A-Za-z0-9~]*)*$ (longest, non-whole-string).
+static size_t fvc_prefixlen(const char *s, size_t len) {
+  size_t prefixlen = 0;
+  for (size_t i = 0; ; ) {
+    if (i == len)
+      return prefixlen;
+    i++;
+    prefixlen = i;
+    while (i + 1 < len && s[i] == '.'
+           && (isalpha((unsigned char)s[i+1]) || s[i+1] == '~'))
+      for (i += 2; i < len && (isalnum((unsigned char)s[i]) || s[i] == '~'); i++)
+        continue;
+  }
+}
+
+// Custom byte ordering for version sort non-digit comparison.
+static int fvc_order(const char *s, size_t pos, size_t len) {
+  if (pos == len)
+    return -1;                          // end-of-string
+  unsigned char c = (unsigned char)s[pos];
+  if (isdigit(c))
+    return 0;                           // digits handled separately
+  else if (isalpha(c))
+    return c;                           // letters sort by ASCII value
+  else if (c == '~')
+    return -2;                          // tilde sorts before everything
+  else
+    return (int)c + 256;               // other bytes sort after letters
+}
+
+// Core Debian verrevcmp: compare two byte arrays by version rules.
+static int fvc_verrevcmp(const char *s1, size_t n1, const char *s2, size_t n2) {
+  size_t p1 = 0, p2 = 0;
+  while (p1 < n1 || p2 < n2) {
+    int first_diff = 0;
+    // Compare non-digit parts
+    while ((p1 < n1 && !isdigit((unsigned char)s1[p1]))
+        || (p2 < n2 && !isdigit((unsigned char)s2[p2]))) {
+      int c1 = fvc_order(s1, p1, n1);
+      int c2 = fvc_order(s2, p2, n2);
+      if (c1 != c2)
+        return c1 - c2;
+      p1++; p2++;
+    }
+    // Skip leading zeros
+    while (p1 < n1 && s1[p1] == '0') p1++;
+    while (p2 < n2 && s2[p2] == '0') p2++;
+    // Compare digit parts numerically
+    while (p1 < n1 && p2 < n2
+        && isdigit((unsigned char)s1[p1]) && isdigit((unsigned char)s2[p2])) {
+      if (!first_diff)
+        first_diff = s1[p1] - s2[p2];
+      p1++; p2++;
+    }
+    if (p1 < n1 && isdigit((unsigned char)s1[p1])) return 1;   // s1 has more digits
+    if (p2 < n2 && isdigit((unsigned char)s2[p2])) return -1;  // s2 has more digits
+    if (first_diff) return first_diff;
+  }
+  return 0;
+}
+
+// Full filevercmp: handles empty, dot, dotdot, dotfiles, extension stripping.
+static int kk_filevercmp(const char *a, size_t alen, const char *b, size_t blen) {
+  // Empty strings sort first
+  if (!alen) return blen ? -1 : 0;
+  if (!blen) return 1;
+
+  // Special cases for leading '.'
+  if (a[0] == '.') {
+    if (b[0] != '.') return -1;
+    // "." sorts first
+    if (alen == 1) return (blen == 1) ? 0 : -1;
+    if (blen == 1) return 1;
+    // ".." sorts second
+    if (a[1] == '.' && alen == 2) return (b[1] == '.' && blen == 2) ? 0 : -1;
+    if (b[1] == '.' && blen == 2) return 1;
+  } else if (b[0] == '.') {
+    return 1;
+  }
+
+  // Strip file extension suffixes
+  size_t apfx = fvc_prefixlen(a, alen);
+  size_t bpfx = fvc_prefixlen(b, blen);
+
+  // If both suffixes are empty, one pass suffices
+  int one_pass = (apfx == alen && bpfx == blen);
+
+  int result = fvc_verrevcmp(a, apfx, b, bpfx);
+  if (result || one_pass) return result;
+  // Suffixes differ: re-compare with full strings
+  return fvc_verrevcmp(a, alen, b, blen);
+}
+
+// Koka FFI wrapper: compare two Koka strings using filevercmp.
+static kk_integer_t kk_os_filevercmp(kk_string_t sa, kk_string_t sb, kk_context_t* ctx) {
+  int result = 0;
+  kk_with_string_as_qutf8_borrow(sa, ca, ctx) {
+    kk_with_string_as_qutf8_borrow(sb, cb, ctx) {
+      size_t alen = strlen(ca);
+      size_t blen = strlen(cb);
+      result = kk_filevercmp(ca, alen, cb, blen);
+    }
+  }
+  kk_string_drop(sa, ctx);
+  kk_string_drop(sb, ctx);
+  // Normalize to -1/0/1
+  return kk_integer_from_int(result < 0 ? -1 : result > 0 ? 1 : 0, ctx);
+}

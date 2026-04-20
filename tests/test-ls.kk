@@ -623,3 +623,40 @@ pub fun main() : io ()
     test("Options should not have group-dirs by default")
       val opts = Options()
       assert/is-false(opts.group-dirs)
+
+    // --- parse-args: -v / --sort=version ---
+    test("parse-args -v enables sort-version")
+      val sv = match parse-args(["-v"])
+        Parsed(opts, _) -> opts.sort-by.is-sortVersion
+        _ -> False
+      assert/is-true(sv)
+
+    test("parse-args --sort=version enables sort-version")
+      val sv = match parse-args(["--sort=version"])
+        Parsed(opts, _) -> opts.sort-by.is-sortVersion
+        _ -> False
+      assert/is-true(sv)
+
+    // --- filevercmp unit tests ---
+    test("filevercmp: a1 < a2")
+      assert/is-true(filevercmp("a1", "a2") < 0)
+
+    test("filevercmp: a2 < a10")
+      assert/is-true(filevercmp("a2", "a10") < 0)
+
+    test("filevercmp: a1 < a13 < a120")
+      assert/is-true(filevercmp("a1", "a13") < 0)
+      assert/is-true(filevercmp("a13", "a120") < 0)
+
+    test("filevercmp: equal strings")
+      assert/is-true(filevercmp("hello", "hello") == 0)
+
+    test("filevercmp: dotfiles before non-dotfiles")
+      assert/is-true(filevercmp(".hidden", "visible") < 0)
+
+    test("filevercmp: dot sorts first")
+      assert/is-true(filevercmp(".", "..") < 0)
+      assert/is-true(filevercmp("..", ".hidden") < 0)
+
+    test("filevercmp: extension handling")
+      assert/is-true(filevercmp("hello-8.txt", "hello-8.2.txt") < 0)
