@@ -1,5 +1,5 @@
 /*
- * wc.kk - word count utility for koka-labs
+ * wc.kk - word count utility for koka-labs (GNU clone)
  * Copyright (C) 2026 Claes Adamsson <claes.adamsson@gmail.com>
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy

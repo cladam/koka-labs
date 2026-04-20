@@ -268,6 +268,79 @@ static kk_integer_t kk_os_get_inode(kk_string_t path, kk_context_t* ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// stat-info: All file metadata in a single lstat call (for ls -l).
+//
+// Returns a tab-separated string so Koka can parse it without needing
+// to construct complex C→Koka data structures:
+//   mode \t nlink \t owner \t uid \t group \t gid \t size \t mtime_sec \t mtime_nsec \t blocks
+//
+// mode is the 10-char "drwxr-xr-x" string.
+// owner/group are looked up via getpwuid/getgrgid; empty if unknown.
+// Returns empty string on error.
+// ---------------------------------------------------------------------------
+#include <pwd.h>
+#include <grp.h>
+
+// Format mode bits into the classic "-rwxrwxrwx" string (10 chars + NUL).
+static void kk_format_mode(mode_t mode, char *buf) {
+  switch (mode & S_IFMT) {
+    case S_IFDIR:  buf[0] = 'd'; break;
+    case S_IFLNK:  buf[0] = 'l'; break;
+    case S_IFCHR:  buf[0] = 'c'; break;
+    case S_IFBLK:  buf[0] = 'b'; break;
+    case S_IFIFO:  buf[0] = 'p'; break;
+    case S_IFSOCK: buf[0] = 's'; break;
+    default:       buf[0] = '-'; break;
+  }
+  buf[1] = (mode & S_IRUSR) ? 'r' : '-';
+  buf[2] = (mode & S_IWUSR) ? 'w' : '-';
+  buf[3] = (mode & S_ISUID) ? ((mode & S_IXUSR) ? 's' : 'S')
+                             : ((mode & S_IXUSR) ? 'x' : '-');
+  buf[4] = (mode & S_IRGRP) ? 'r' : '-';
+  buf[5] = (mode & S_IWGRP) ? 'w' : '-';
+  buf[6] = (mode & S_ISGID) ? ((mode & S_IXGRP) ? 's' : 'S')
+                             : ((mode & S_IXGRP) ? 'x' : '-');
+  buf[7] = (mode & S_IROTH) ? 'r' : '-';
+  buf[8] = (mode & S_IWOTH) ? 'w' : '-';
+  buf[9] = (mode & S_ISVTX) ? ((mode & S_IXOTH) ? 't' : 'T')
+                             : ((mode & S_IXOTH) ? 'x' : '-');
+  buf[10] = '\0';
+}
+
+static kk_string_t kk_os_stat_info(kk_string_t path, kk_context_t* ctx) {
+  struct stat st = { 0 };
+  int err = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    if (lstat(cpath, &st) < 0) err = errno;
+  }
+  kk_string_drop(path, ctx);
+  if (err != 0) return kk_string_empty();
+
+  char modebuf[12];
+  kk_format_mode(st.st_mode, modebuf);
+
+  struct passwd *pw = getpwuid(st.st_uid);
+  const char *owner = pw ? pw->pw_name : "";
+
+  struct group *gr = getgrgid(st.st_gid);
+  const char *group = gr ? gr->gr_name : "";
+
+  char buf[1024];
+  snprintf(buf, sizeof(buf), "%s\t%llu\t%s\t%u\t%s\t%u\t%lld\t%lld\t%ld\t%lld",
+    modebuf,
+    (unsigned long long)st.st_nlink,
+    owner,
+    (unsigned)st.st_uid,
+    group,
+    (unsigned)st.st_gid,
+    (long long)st.st_size,
+    (long long)KK_ST_MTIME_SEC(st),
+    (long)KK_ST_MTIME_NSEC(st),
+    (long long)st.st_blocks);
+  return kk_string_alloc_from_qutf8(buf, ctx);
+}
+
+// ---------------------------------------------------------------------------
 // filevercmp — version-aware file name comparison (GNU ls -v)
 //
 // Re-implemented from gnulib's filevercmp.c (LGPL-3.0-or-later).

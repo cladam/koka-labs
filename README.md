@@ -130,7 +130,7 @@ See [tests/kunit.kk](tests/kunit.kk).
 - [x] `-S, --sort=size` — sort by file size, largest first
 - [x] `-t, --sort=time` — sort by modification time, newest first
 - [x] `-U, --sort=none` — do not sort; list entries in directory order
-- [ ] `-v, --sort=version` — natural sort of version numbers within text
+- [x] `-v, --sort=version` — natural sort of version numbers within text
 - [x] `-X, --sort=extension` — sort alphabetically by file extension
 - [x] `--sort=name` — sort by name (default; explicit override)
 - [x] `--sort=width` — sort by printed width of file name
