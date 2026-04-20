@@ -356,6 +356,33 @@ static kk_string_t kk_os_readlink_path(kk_string_t path, kk_context_t* ctx) {
   return kk_string_alloc_from_qutf8(buf, ctx);
 }
 
+/*
+  format-timestamp: Format a Unix timestamp for ls -l display.
+  GNU ls shows "Mon DD HH:MM" for files modified within the last 6 months,
+  and "Mon DD  YYYY" for older (or future) files.
+  Takes seconds-since-epoch as a Koka integer.
+*/
+#include <time.h>
+
+static kk_string_t kk_os_format_timestamp(kk_integer_t sec_ki, kk_context_t* ctx) {
+  int64_t sec = kk_integer_clamp64(sec_ki, ctx);
+  time_t t = (time_t)sec;
+  struct tm *tm = localtime(&t);
+  if (tm == NULL) return kk_string_alloc_from_qutf8("???", ctx);
+
+  time_t now = time(NULL);
+  time_t six_months = (time_t)(365.25 / 2.0 * 24 * 60 * 60);
+  bool recent = (now - t >= 0) && (now - t < six_months);
+
+  char buf[64];
+  if (recent) {
+    strftime(buf, sizeof(buf), "%b %e %H:%M", tm);
+  } else {
+    strftime(buf, sizeof(buf), "%b %e  %Y", tm);
+  }
+  return kk_string_alloc_from_qutf8(buf, ctx);
+}
+
 // ---------------------------------------------------------------------------
 // filevercmp — version-aware file name comparison (GNU ls -v)
 //

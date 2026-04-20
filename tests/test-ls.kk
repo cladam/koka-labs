@@ -737,3 +737,19 @@ pub fun main() : io ()
 
     itest("readlink-path returns empty for nonexistent file")
       assert/is-true(readlink-path("nonexistent-xyz").is-empty)
+
+    itest("format-timestamp: recent file shows month and time")
+      // Use mtime from a real file — should be recent
+      match get-file-info("README.md")
+        Just(fi) ->
+          val ts = format-timestamp(fi.fi-mtime-sec)
+          // Should contain a month abbreviation (3 letters) and a colon (HH:MM)
+          assert/is-true(ts.count > 0)
+          assert/is-true(ts.contains(":"))
+        Nothing -> assert/is-true(False)
+
+    itest("format-timestamp: old date shows year instead of time")
+      // Jan 1, 2020 00:00:00 UTC = 1577836800
+      val ts = format-timestamp(1577836800)
+      assert/is-true(ts.contains("2020"))
+      assert/is-false(ts.contains(":"))

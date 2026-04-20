@@ -84,6 +84,9 @@ extern stat-info-raw(p : string) : fsys string
 pub extern readlink-path(p : string) : fsys string
   c "kk_os_readlink_path"
 
+pub extern format-timestamp(sec : int) : fsys string
+  c "kk_os_format_timestamp"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
