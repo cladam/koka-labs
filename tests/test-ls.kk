@@ -660,3 +660,71 @@ pub fun main() : io ()
 
     test("filevercmp: extension handling")
       assert/is-true(filevercmp("hello-8.txt", "hello-8.2.txt") < 0)
+
+    // --- parse-stat-info unit tests ---
+    test("parse-stat-info parses valid tab-separated input")
+      val input = "-rw-r--r--\t1\tuser\t501\tstaff\t20\t1234\t1000000\t0\t8"
+      match parse-stat-info(input)
+        Just(fi) ->
+          assert/is-true(fi.fi-mode == "-rw-r--r--")
+          assert/is-true(fi.fi-nlink == 1)
+          assert/is-true(fi.fi-owner == "user")
+          assert/is-true(fi.fi-uid == 501)
+          assert/is-true(fi.fi-group == "staff")
+          assert/is-true(fi.fi-gid == 20)
+          assert/is-true(fi.fi-size == 1234)
+          assert/is-true(fi.fi-mtime-sec == 1000000)
+          assert/is-true(fi.fi-mtime-nsec == 0)
+          assert/is-true(fi.fi-blocks == 8)
+        Nothing -> assert/is-true(False)
+
+    test("parse-stat-info returns Nothing for empty string")
+      assert/is-true(parse-stat-info("").is-nothing)
+
+    test("parse-stat-info returns Nothing for malformed input")
+      assert/is-true(parse-stat-info("just\ttwo").is-nothing)
+
+  // --- file-info integration tests ---
+  println("")
+  println(bold("Running file-info integration tests..."))
+  defaultKIntegrationHandler
+    itest("get-file-info returns Just for existing file")
+      assert/is-true(get-file-info("README.md").is-just)
+
+    itest("get-file-info returns Nothing for nonexistent file")
+      assert/is-true(get-file-info("nonexistent-xyz").is-nothing)
+
+    itest("file-info: regular file mode starts with -")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-mode.head-char.default(' ') == '-')
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: directory mode starts with d")
+      match get-file-info("src")
+        Just(fi) -> assert/is-true(fi.fi-mode.head-char.default(' ') == 'd')
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: nlink is positive")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-nlink > 0)
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: owner is non-empty")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-owner.count > 0)
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: group is non-empty")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-group.count > 0)
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: size is positive for non-empty file")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-size > 0)
+        Nothing  -> assert/is-true(False)
+
+    itest("file-info: mtime is positive")
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(fi.fi-mtime-sec > 0)
+        Nothing  -> assert/is-true(False)
