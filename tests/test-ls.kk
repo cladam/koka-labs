@@ -85,8 +85,8 @@ pub fun main() : io ()
 
     itest("reverse listing is in descending order")
       val (entries-r, _) = list-dir-names("." .path, Options(reverse = True))
-      val first = entries-r.head.default(("", 0)).fst
-      val last  = entries-r.last.default(("", 0)).fst
+      val first = entries-r.head.default(("", 0, "")).fst
+      val last  = entries-r.last.default(("", 0, "")).fst
       assert/is-true(first > last)
 
     // --- recursive integration tests ---
@@ -126,8 +126,8 @@ pub fun main() : io ()
     itest("-i: inodes are consistent across calls")
       val (entries1, _) = list-dir-names(".".path, Options(print-inode = True))
       val (entries2, _) = list-dir-names(".".path, Options(print-inode = True))
-      val ino1 = entries1.filter(fn(e) e.fst == "README.md").head.default(("", 0)).snd
-      val ino2 = entries2.filter(fn(e) e.fst == "README.md").head.default(("", 0)).snd
+      val ino1 = entries1.filter(fn(e) e.fst == "README.md").head.default(("", 0, "")).snd
+      val ino2 = entries2.filter(fn(e) e.fst == "README.md").head.default(("", 0, "")).snd
       assert/is-true(ino1 > 0)
       assert/is-true(ino1 == ino2)
 
@@ -141,8 +141,8 @@ pub fun main() : io ()
 
     itest("-i with -a: . and .. have inodes")
       val (entries, _) = list-dir-names(".".path, Options(show-all = True, print-inode = True))
-      val dot-ino = entries.filter(fn(e) e.fst == ".").head.default(("", 0)).snd
-      val dotdot-ino = entries.filter(fn(e) e.fst == "..").head.default(("", 0)).snd
+      val dot-ino = entries.filter(fn(e) e.fst == ".").head.default(("", 0, "")).snd
+      val dotdot-ino = entries.filter(fn(e) e.fst == "..").head.default(("", 0, "")).snd
       assert/is-true(dot-ino > 0)
       assert/is-true(dotdot-ino > 0)
 
@@ -684,6 +684,44 @@ pub fun main() : io ()
     test("parse-stat-info returns Nothing for malformed input")
       assert/is-true(parse-stat-info("just\ttwo").is-nothing)
 
+    // --- parse-args: -l ---
+    test("parse-args -l enables long-format")
+      match parse-args(["-l"])
+        Parsed(opts, _) -> assert/is-true(opts.long-format)
+        _ -> assert/is-true(False)
+
+    test("Options should not have long-format by default")
+      val opts = Options()
+      assert/is-false(opts.long-format)
+
+    test("-l disables one-entry and force-columns")
+      match parse-args(["-1", "-l"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.long-format)
+          assert/is-false(opts.one-entry)
+        _ -> assert/is-true(False)
+
+    test("-1 disables long-format")
+      match parse-args(["-l", "-1"])
+        Parsed(opts, _) ->
+          assert/is-false(opts.long-format)
+          assert/is-true(opts.one-entry)
+        _ -> assert/is-true(False)
+
+    test("-C disables long-format")
+      match parse-args(["-l", "-C"])
+        Parsed(opts, _) ->
+          assert/is-false(opts.long-format)
+          assert/is-true(opts.force-columns)
+        _ -> assert/is-true(False)
+
+    test("-l can combine with other flags")
+      match parse-args(["-la"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.long-format)
+          assert/is-true(opts.show-all)
+        _ -> assert/is-true(False)
+
   // --- file-info integration tests ---
   println("")
   println(bold("Running file-info integration tests..."))
@@ -753,3 +791,28 @@ pub fun main() : io ()
       val ts = format-timestamp(1577836800)
       assert/is-true(ts.contains("2020"))
       assert/is-false(ts.contains(":"))
+
+    // --- long-format (-l) integration tests ---
+    itest("-l: output contains total line")
+      val (code, output) = captured-list-dir(".".path, Options(long-format = True))
+      assert/is-true(code == 0)
+      assert/is-true(output.starts-with("total ").bool)
+
+    itest("-l: output contains mode string")
+      val (code, output) = captured-list-dir(".".path, Options(long-format = True))
+      assert/is-true(code == 0)
+      // src directory should show drwx
+      assert/is-true(output.contains("drwx"))
+
+    itest("-l: output contains owner and group")
+      val (code, output) = captured-list-dir(".".path, Options(long-format = True))
+      assert/is-true(code == 0)
+      // Should contain at least the current user's name
+      match get-file-info("README.md")
+        Just(fi) -> assert/is-true(output.contains(fi.fi-owner))
+        Nothing  -> assert/is-true(False)
+
+    itest("-l: symlink shows -> target")
+      val (code, output) = captured-list-dir("tests".path, Options(long-format = True))
+      assert/is-true(code == 0)
+      assert/is-true(output.contains("-> ../README.md"))

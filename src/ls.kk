@@ -228,6 +228,7 @@ pub struct options
   classify        : classify-when   = ClassifyNever // -F, --classify[=WHEN]
   indicator       : indicator-style = IndicatorNone // --indicator-style, -p, --file-type
   no-sort         : bool = False // -f
+  long-format     : bool = False // -l
   hide-patterns   : list<string> = [] // --hide
   ignore-patterns : list<string> = [] // -I
   reverse         : bool = False // -r
@@ -367,6 +368,7 @@ val usage = [
     "                             none, slash (-p), file-type, classify (-F)",
     "  -I, --ignore=PATTERN       do not list entries matching shell PATTERN",
     "  -i, --inode                print the index number of each file",
+    "  -l                         use a long listing format",
     "  -p, --indicator-style=slash",
     "                             append / indicator to directories",
     "  -r, --reverse              reverse order while sorting",
@@ -487,6 +489,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'F' -> False
           'i' -> False
           'I' -> False
+          'l' -> False
           'p' -> False
           'r' -> False
           'R' -> False
@@ -507,14 +510,15 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'A' -> o(almost-all = True, show-all = False)
               'B' -> o(ignore-backups = True)
               'c' -> o(time-type = TimeCtime)
-              'C' -> o(force-columns = True, one-entry = False)
+              'C' -> o(force-columns = True, one-entry = False, long-format = False)
               'd' -> o(dir-only = True)
               // TODO: GNU ls -f also disables -l, -s, --color, and -F.
               // Add those overrides here later
-              'f' -> o(show-all = True, sort-by = SortNone)
+              'f' -> o(show-all = True, sort-by = SortNone, long-format = False)
               // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
               'i' -> o(print-inode = True)
+              'l' -> o(long-format = True, one-entry = False, force-columns = False)
               'p' -> o(indicator = IndicatorSlash)
               'r' -> o(reverse = True)
               'R' -> o(recurse = True)
@@ -524,7 +528,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'U' -> o(sort-by = SortNone)
               'v' -> o(sort-by = SortVersion)
               'X' -> o(sort-by = SortExtension)
-              '1' -> o(one-entry = True, force-columns = False)
+              '1' -> o(one-entry = True, force-columns = False, long-format = False)
               _   -> o
           if has-I then
             match rest
@@ -686,9 +690,9 @@ pub fun list-dir-names(dir-path : path, opts : options, is-tty : bool = True)
   // --group-directories-first: partition dirs before files, preserving sort
   val sorted = if opts.group-dirs then
       val (grp-dirs, grp-files) = sorted3.partition(fn(e) is-directory(dir-path / e.thd.path))
-      (grp-dirs ++ grp-files).map(fn(e) (e.fst, e.snd))
+      grp-dirs ++ grp-files
     else
-      sorted3.map(fn(e) (e.fst, e.snd))
+      sorted3
   (sorted, 0)
 
 // Format inode for display, right-justified to given width
@@ -711,20 +715,84 @@ pub fun format-entries(entries : list<(string, int)>, opts : options) : list<str
   else
     entries.map(fn(e) e.fst)
 
+// Right-justify a string to the given width
+fun rjust(s : string, w : int) : string
+  val pad = w - s.count
+  (if pad > 0 then " ".repeat(pad) else "") ++ s
+
+// Left-justify a string to the given width
+fun ljust(s : string, w : int) : string
+  val pad = w - s.count
+  s ++ (if pad > 0 then " ".repeat(pad) else "")
+
+// Format and print long-format (-l) listing
+// entries: (display-name, inode, full-path-for-stat)
+pub fun format-long-listing(entries : list<(string, int, string)>, opts : options, show-total : bool = True) : _ ()
+  val infos = entries.map fn(e)
+    (e, get-file-info(e.thd))
+  // Print "total BLOCKS" line (512-byte blocks displayed as 1K blocks)
+  if show-total then
+    val total-raw = infos.foldl(0) fn(acc, x)
+      match x.snd
+        Just(fi) -> acc + fi.fi-blocks
+        Nothing  -> acc
+    echoln("total " ++ (total-raw / 2).show)
+  // Compute column widths for alignment
+  val nw = infos.foldl(0) fn(mx, x)
+    match x.snd
+      Just(fi) -> max(mx, fi.fi-nlink.show.count)
+      Nothing  -> mx
+  val ow = infos.foldl(0) fn(mx, x)
+    match x.snd
+      Just(fi) -> max(mx, fi.fi-owner.count)
+      Nothing  -> mx
+  val gw = infos.foldl(0) fn(mx, x)
+    match x.snd
+      Just(fi) -> max(mx, fi.fi-group.count)
+      Nothing  -> mx
+  val sw = infos.foldl(0) fn(mx, x)
+    match x.snd
+      Just(fi) -> max(mx, fi.fi-size.show.count)
+      Nothing  -> mx
+  val iw = if opts.print-inode then
+      infos.foldl(0) fn(mx, x)
+        max(mx, x.fst.snd.show.count)
+    else 0
+  // Render each line
+  infos.foreach fn(x)
+    val (name, ino, fpath) = x.fst
+    match x.snd
+      Just(fi) ->
+        val ip = if opts.print-inode then rjust(ino.show, iw) ++ " " else ""
+        val sl = if fi.fi-mode.head-char.default(' ') == 'l' then
+            val target = readlink-path(fpath)
+            if target.is-empty then "" else " -> " ++ target
+          else ""
+        val ts = format-timestamp(fi.fi-mtime-sec)
+        echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
+               ljust(fi.fi-owner, ow) ++ " " ++ ljust(fi.fi-group, gw) ++ "  " ++
+               rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
+      Nothing ->
+        echoln("? " ++ name)
+
 pub fun list-dir(dir-path : path, opts : options, show-header : bool, display-path : string = dir-path.string) : _ int
   if show-header then echoln(display-path ++ ":")
   val tty = stdout-is-tty()
   val (sorted, code) = list-dir-names(dir-path, opts, tty)
-  val display = format-entries(sorted, opts)
-  val use-columns = if opts.one-entry then False
-                    elif opts.force-columns then True
-                    else tty
-  if use-columns then
-    val width = terminal-width()
-    val lines = render-column-major(display, width)
-    lines.foreach(fn(line) echoln(line))
+  if opts.long-format then
+    val full-entries = sorted.map(fn(e) (e.fst, e.snd, (dir-path / e.thd.path).string))
+    format-long-listing(full-entries, opts)
   else
-    display.foreach(fn(name) echoln(name))
+    val display = format-entries(sorted.map(fn(e) (e.fst, e.snd)), opts)
+    val use-columns = if opts.one-entry then False
+                      elif opts.force-columns then True
+                      else tty
+    if use-columns then
+      val width = terminal-width()
+      val lines = render-column-major(display, width)
+      lines.foreach(fn(line) echoln(line))
+    else
+      display.foreach(fn(name) echoln(name))
   // Recurse into subdirectories for -R
   if opts.recurse && !opts.dir-only then
     val raw-entries = match try({read-dir-entries(dir-path)})
@@ -817,50 +885,52 @@ fun main()
           val ino = if opts.print-inode then get-inode((t.snd).string) else 0
           (name, ino, (t.snd).string)
         val sorted-file-entries = match opts.sort-by
-          SortNone -> file-entries.map(fn(e) (e.fst, e.snd))
+          SortNone -> file-entries
           SortName ->
-            val s = if opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
-                    else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
-            s.map(fn(e) (e.fst, e.snd))
+            if opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
+            else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
           SortSize ->
-            val with-size = file-entries.map(fn(e) (e.fst, e.snd, get-size(e.thd)))
-            val s = if opts.reverse then with-size.sortby fn(a, b)
-                      match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
-                    else with-size.sortby fn(a, b)
-                      match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
-            s.map(fn(e) (e.fst, e.snd))
+            val decorated = file-entries.map(fn(e) (e, get-size(e.thd)))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
           SortTime ->
-            val with-time = file-entries.map(fn(e) (e.fst, e.snd, get-timestamp(e.thd, opts.time-type)))
-            val s = if opts.reverse then with-time.sortby fn(a, b)
-                      match cmp(a.thd, b.thd) { Eq -> cmp(b.fst, a.fst); c -> c }
-                    else with-time.sortby fn(a, b)
-                      match cmp(b.thd, a.thd) { Eq -> cmp(a.fst, b.fst); c -> c }
-            s.map(fn(e) (e.fst, e.snd))
+            val decorated = file-entries.map(fn(e) (e, get-timestamp(e.thd, opts.time-type)))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
           SortExtension ->
-            val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
-                    else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
-            s.map(fn(e) (e.fst, e.snd))
+            if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+            else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
           SortVersion ->
-            val s = if opts.reverse then file-entries.sortby(fn(a, b) cmp-version(b.fst, a.fst))
-                    else file-entries.sortby(fn(a, b) cmp-version(a.fst, b.fst))
-            s.map(fn(e) (e.fst, e.snd))
+            if opts.reverse then file-entries.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+            else file-entries.sortby(fn(a, b) cmp-version(a.fst, b.fst))
           SortWidth ->
             val decorated = file-entries.map(fn(e) (e, e.fst.count))
             val s = if opts.reverse then decorated.sortby fn(a, b)
                       match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
                     else decorated.sortby fn(a, b)
                       match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
-            s.map(fn(e) (e.fst.fst, e.fst.snd))
-        val sorted-file-names = format-entries(sorted-file-entries, opts)
-        val use-columns = if opts.one-entry then False
-                          elif opts.force-columns then True
-                          else tty
-        if use-columns then
-          val width = terminal-width()
-          val lines = render-column-major(sorted-file-names, width)
-          lines.foreach(fn(line) echoln(line))
+            s.map(fn(e) e.fst)
+        val has-files = sorted-file-entries.length > 0
+        if opts.long-format then
+          if has-files then
+            format-long-listing(sorted-file-entries, opts, False)
         else
-          sorted-file-names.foreach(fn(name) echoln(name))
+          val sorted-file-names = format-entries(sorted-file-entries.map(fn(e) (e.fst, e.snd)), opts)
+          val use-columns = if opts.one-entry then False
+                            elif opts.force-columns then True
+                            else tty
+          if use-columns then
+            val width = terminal-width()
+            val lines = render-column-major(sorted-file-names, width)
+            lines.foreach(fn(line) echoln(line))
+          else
+            sorted-file-names.foreach(fn(name) echoln(name))
         // Sort directories, then list each
         val sorted-dirs = match opts.sort-by
           SortNone -> dirs
@@ -890,9 +960,9 @@ fun main()
           _ ->
             if opts.reverse then dirs.reverse
             else dirs  // already in argument order, which is fine
-        val show-header = sorted-dirs.length > 1 || sorted-file-names.length > 0
+        val show-header = sorted-dirs.length > 1 || has-files
         sorted-dirs.foreach-indexed fn(i, dir-entry)
-          if i > 0 || sorted-file-names.length > 0 then echoln("")
+          if i > 0 || has-files then echoln("")
           val dir-code = list-dir(dir-entry.snd, opts, show-header)
           if dir-code > exit-code then exit-code := dir-code
     if exit-code > 0 then exit(exit-code)
