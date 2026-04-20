@@ -78,6 +78,9 @@ extern get-ctime(p : string) : fsys int
 pub extern filevercmp(a : string, b : string) : int
   c "kk_os_filevercmp"
 
+extern stat-info-raw(p : string) : fsys string
+  c "kk_os_stat_info"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 
@@ -249,6 +252,46 @@ pub fun parse-readdir(s : string) : list<dir-entry>
 pub fun read-dir-entries(dir-path : path) : fsys list<dir-entry>
   val s = readdir-raw(dir-path.string)
   parse-readdir(s)
+
+// ---------------------------------------------------------------------------
+// File metadata — single-stat result for -l (long format)
+// Parsed from the tab-separated string returned by stat-info-raw:
+//   mode \t nlink \t owner \t uid \t group \t gid \t size \t mtime_sec \t mtime_nsec \t blocks
+// ---------------------------------------------------------------------------
+
+pub struct file-info
+  fi-mode      : string  // e.g. "-rwxr-xr-x"
+  fi-nlink     : int
+  fi-owner     : string  // user name from getpwuid
+  fi-uid       : int
+  fi-group     : string  // group name from getgrgid
+  fi-gid       : int
+  fi-size      : int
+  fi-mtime-sec : int     // seconds since epoch
+  fi-mtime-nsec: int
+  fi-blocks    : int     // 512-byte blocks allocated
+
+pub fun parse-stat-info(s : string) : maybe<file-info>
+  match s.split("\t")
+    [mode, nlink, owner, uid, group, gid, size, mtime-s, mtime-ns, blocks] ->
+      Just(File-info(
+        mode,
+        nlink.parse-int.default(0),
+        owner,
+        uid.parse-int.default(0),
+        group,
+        gid.parse-int.default(0),
+        size.parse-int.default(0),
+        mtime-s.parse-int.default(0),
+        mtime-ns.parse-int.default(0),
+        blocks.parse-int.default(0)
+      ))
+    _ -> Nothing
+
+pub fun get-file-info(p : string) : fsys maybe<file-info>
+  val s = stat-info-raw(p)
+  if s.is-empty then Nothing
+  else parse-stat-info(s)
 
 // ---------------------------------------------------------------------------
 // File classification for -F flag
