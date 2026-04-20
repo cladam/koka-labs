@@ -728,3 +728,12 @@ pub fun main() : io ()
       match get-file-info("README.md")
         Just(fi) -> assert/is-true(fi.fi-mtime-sec > 0)
         Nothing  -> assert/is-true(False)
+
+    itest("readlink-path returns empty for regular file")
+      assert/is-true(readlink-path("README.md").is-empty)
+
+    itest("readlink-path returns target for symlink")
+      assert/is-true(readlink-path("tests/README.md") == "../README.md")
+
+    itest("readlink-path returns empty for nonexistent file")
+      assert/is-true(readlink-path("nonexistent-xyz").is-empty)

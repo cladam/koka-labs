@@ -81,6 +81,9 @@ pub extern filevercmp(a : string, b : string) : int
 extern stat-info-raw(p : string) : fsys string
   c "kk_os_stat_info"
 
+pub extern readlink-path(p : string) : fsys string
+  c "kk_os_readlink_path"
+
 extern eprint(msg : string) : fsys ()
   c "kk_os_eprint"
 

@@ -340,6 +340,22 @@ static kk_string_t kk_os_stat_info(kk_string_t path, kk_context_t* ctx) {
   return kk_string_alloc_from_qutf8(buf, ctx);
 }
 
+/*
+  readlink-path: Read the target of a symbolic link.
+  Returns the target string, or empty string on error/non-symlink.
+*/
+static kk_string_t kk_os_readlink_path(kk_string_t path, kk_context_t* ctx) {
+  char buf[4096];
+  ssize_t len = 0;
+  kk_with_string_as_qutf8_borrow(path, cpath, ctx) {
+    len = readlink(cpath, buf, sizeof(buf) - 1);
+  }
+  kk_string_drop(path, ctx);
+  if (len < 0) return kk_string_empty();
+  buf[len] = '\0';
+  return kk_string_alloc_from_qutf8(buf, ctx);
+}
+
 // ---------------------------------------------------------------------------
 // filevercmp — version-aware file name comparison (GNU ls -v)
 //
