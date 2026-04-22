@@ -232,6 +232,7 @@ pub struct options
   hide-patterns   : list<string> = [] // --hide
   ignore-patterns : list<string> = [] // -I
   reverse         : bool = False // -r
+  no-group        : bool = False // -G, --no-group
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
   sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
@@ -361,6 +362,7 @@ val usage = [
     "  -d, --directory            list directories themselves, not their contents",
     "  -F, --classify[=WHEN]      append indicator (one of */=>@|) to entries WHEN",
     "  -f                         same as -a -U",
+    "  -G, --no-group             in a long listing, don't print group names",
     "      --file-type            like -F, except do not append '*'",
     "      --hide=PATTERN         do not list implied entries matching shell PATTERN",
     "                             (overridden by -a or -A)",
@@ -462,6 +464,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       match parse-indicator-style(style-str)
         Just(sty) -> parse-args(rest, opts(indicator = sty), paths)
         Nothing   -> InvalidFlag("--indicator-style=" ++ style-str)
+    Cons("--no-group", rest) ->
+      parse-args(rest, opts(no-group = True), paths)
     Cons("--inode", rest) ->
       parse-args(rest, opts(print-inode = True), paths)
     Cons(arg, rest) | arg.starts-with("--hide=").bool ->
@@ -487,6 +491,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'd' -> False
           'f' -> False
           'F' -> False
+          'G' -> False
           'i' -> False
           'I' -> False
           'l' -> False
@@ -517,6 +522,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'f' -> o(show-all = True, sort-by = SortNone, long-format = False)
               // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
+              'G' -> o(no-group = True)
               'i' -> o(print-inode = True)
               'l' -> o(long-format = True, one-entry = False, force-columns = False)
               'p' -> o(indicator = IndicatorSlash)
@@ -769,8 +775,9 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
             if target.is-empty then "" else " -> " ++ target
           else ""
         val ts = format-timestamp(fi.fi-mtime-sec)
+        val gp = if opts.no-group then "" else ljust(fi.fi-group, gw) ++ " "
         echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
-               ljust(fi.fi-owner, ow) ++ " " ++ ljust(fi.fi-group, gw) ++ " " ++
+               ljust(fi.fi-owner, ow) ++ " " ++ gp ++
                rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
       Nothing ->
         echoln("? " ++ name)

@@ -722,6 +722,11 @@ pub fun main() : io ()
           assert/is-true(opts.show-all)
         _ -> assert/is-true(False)
 
+  // --- parse-args: -l ---
+
+
+
+  
   // --- file-info integration tests ---
   println("")
   println(bold("Running file-info integration tests..."))

@@ -3,7 +3,10 @@
 # tbdflow intent log (local-only, never committed)
 .tbdflow-intent.json
 
+
+# wc stuff not ready to be pushed
 src/wc2.kk
 tests/test-wc.kk
-
+tests/wc.h
+tests/wc.c
 test-wc
