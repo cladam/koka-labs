@@ -318,7 +318,7 @@ jobs:
        contains(github.event.issue.labels.*.name, 'review-accepted'))
     permissions:
       statuses: write
-      issues: read
+      issues: write  # needs write to swap labels on close
 
     steps:
       - name: Extract commit SHA and mark as reviewed
