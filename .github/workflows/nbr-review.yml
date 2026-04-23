@@ -349,8 +349,9 @@ jobs:
             # (tbdflow CLI or a human may have already set review-accepted or review-dismissed)
             HAS_ACCEPTED=$(echo "$ISSUE_LABELS" | grep -c "review-accepted" || true)
             HAS_DISMISSED=$(echo "$ISSUE_LABELS" | grep -c "review-dismissed" || true)
+            IS_INVALID=$(echo "ISSUE_LABELS" | grep -c "invalid" || true)
 
-            if [ "$HAS_ACCEPTED" -eq 0 ] && [ "$HAS_DISMISSED" -eq 0 ]; then
+            if [ "$HAS_ACCEPTED" -eq 0 ] && [ "$HAS_DISMISSED" -eq 0 ] && [ "$IS_INVALID"] -eq 0; then
               gh issue edit "$ISSUE_NUM" --repo "$REPO_FULL_NAME" --remove-label "review-pending" 2>/dev/null || true
               gh issue edit "$ISSUE_NUM" --repo "$REPO_FULL_NAME" --add-label "review-accepted" 2>/dev/null || true
             fi
