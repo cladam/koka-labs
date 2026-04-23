@@ -232,13 +232,10 @@ jobs:
 
           # Build diff section
           if [ "$INCLUDE_DIFF" == "true" ]; then
-            DIFF_SECTION=$(cat <<'DIFFEOF'
+            DIFF_SECTION="
 
           <details>
-          <summary>
-DIFFEOF
-)
-            DIFF_SECTION="${DIFF_SECTION}📝 Inline diff (${DIFF_LINES} lines)</summary>
+          <summary>📝 Inline diff (${DIFF_LINES} lines)</summary>
 
           \`\`\`diff
           ${DIFF_CONTENT}
