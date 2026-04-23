@@ -317,7 +317,7 @@ jobs:
       (contains(github.event.issue.labels.*.name, 'review-pending') ||
        contains(github.event.issue.labels.*.name, 'review-accepted') ||
        contains(github.event.issue.labels.*.name, 'review-dismissed') ||
-       contains(github.event.issue.labels.*.name, 'invalid')))
+       contains(github.event.issue.labels.*.name, 'invalid'))
     permissions:
       statuses: write
       issues: write  # needs write to swap labels on close
