@@ -86,6 +86,7 @@ concurrency:
 jobs:
   create-review:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     # --- (B) Uncomment to only review conventional commit types ---
     # if: >-
     #   github.event_name == 'workflow_dispatch' ||
