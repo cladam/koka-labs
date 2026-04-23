@@ -306,15 +306,16 @@ jobs:
       - name: Extract commit SHA and mark as reviewed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
-          BODY="${{ github.event.issue.body }}"
-
           # Extract commit SHA from issue body (looks for /commit/SHA pattern)
-          FULL_SHA=$(echo "$BODY" | grep -oE 'github\.com/.*/commit/[a-f0-9]+' | grep -oE '[a-f0-9]{40}' | head -n1)
+          FULL_SHA=$(echo "$ISSUE_BODY" | grep -oE 'github\.com/.*/commit/[a-f0-9]+' | grep -oE '[a-f0-9]{40}' | head -n1)
 
           if [ -z "$FULL_SHA" ]; then
             # Try short SHA from title
-            SHORT_SHA=$(echo "${{ github.event.issue.title }}" | grep -oE '\([a-f0-9]{7}\)' | tr -d '()')
+            SHORT_SHA=$(echo "$ISSUE_TITLE" | grep -oE '\([a-f0-9]{7}\)' | tr -d '()')
             if [ -n "$SHORT_SHA" ]; then
               # Get full SHA from short
               FULL_SHA=$(gh api repos/${{ github.repository }}/commits/$SHORT_SHA --jq '.sha' 2>/dev/null || echo "")
@@ -322,7 +323,7 @@ jobs:
           fi
 
           if [ -n "$FULL_SHA" ]; then
-            ISSUE_NUM=$(echo "${{ github.event.issue.html_url }}" | grep -oE '[0-9]+$')
+            ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
 
             # Swap labels idempotently (safe if tbdflow CLI already did this)
             gh issue edit "$ISSUE_NUM" --remove-label "review-pending" 2>/dev/null || true
