@@ -10,3 +10,11 @@ tests/test-wc.kk
 tests/wc.h
 tests/wc.c
 test-wc
+
+# Workflows for NBR
+docs/simple-single-review
+
+.DS_Store
+docs/.DS_Store
+src/.DS_Store
+tests/.DS_Store

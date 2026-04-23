@@ -168,19 +168,6 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set pending commit status
-        if: steps.existing.outputs.exists != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ steps.commit-info.outputs.sha }}
-          REPO_FULL_NAME: ${{ github.repository }}
-        run: |
-          gh api "repos/$REPO_FULL_NAME/statuses/$COMMIT_SHA" \
-            -f state='pending' \
-            -f context='peer-review' \
-            -f description='Awaiting non-blocking review'
-          echo "✅ Commit status set to pending"
-
       - name: Generate inline diff (for small changes)
         if: steps.existing.outputs.exists != 'true'
         id: diff
@@ -312,6 +299,14 @@ jobs:
           echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
           echo "✅ Created review issue #$ISSUE_NUM: $ISSUE_URL"
 
+          # Set pending commit status with link to the review issue
+          gh api "repos/$REPO_FULL_NAME/statuses/$COMMIT_SHA" \
+            -f state='pending' \
+            -f context='peer-review' \
+            -f description='Awaiting non-blocking review' \
+            -f target_url="$ISSUE_URL"
+          echo "✅ Commit status set to pending"
+
   # Update commit status when review issue is closed.
   # Matches review-pending (manual close) OR review-accepted (tbdflow CLI approve).
   on-review-closed:
@@ -356,7 +351,8 @@ jobs:
             gh api "repos/$REPO_FULL_NAME/statuses/$FULL_SHA" \
               -f state='success' \
               -f context='peer-review' \
-              -f description='Non-blocking review completed ✅'
+              -f description='Non-blocking review completed ✅' \
+              -f target_url="$ISSUE_URL"
             echo "✅ Commit $FULL_SHA marked as reviewed"
           else
             echo "⚠️ Could not extract commit SHA from issue"
