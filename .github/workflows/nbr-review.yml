@@ -122,15 +122,29 @@ jobs:
 
       - name: Get commit info
         id: commit-info
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.commit_sha }}
+          INPUT_MESSAGE: ${{ inputs.commit_message }}
+          INPUT_AUTHOR: ${{ inputs.author }}
+          INPUT_REVIEWERS: ${{ inputs.reviewers }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
-            echo "message=${{ inputs.commit_message }}" >> $GITHUB_OUTPUT
-            echo "author=${{ inputs.author }}" >> $GITHUB_OUTPUT
-            echo "reviewers=${{ inputs.reviewers }}" >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "sha=$INPUT_SHA" >> $GITHUB_OUTPUT
+            # Use heredoc for message to safely handle special characters
+            EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            echo "message<<$EOF" >> $GITHUB_OUTPUT
+            echo "$INPUT_MESSAGE" >> $GITHUB_OUTPUT
+            echo "$EOF" >> $GITHUB_OUTPUT
+            echo "author=$INPUT_AUTHOR" >> $GITHUB_OUTPUT
+            echo "reviewers=$INPUT_REVIEWERS" >> $GITHUB_OUTPUT
           else
-            echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
-            echo "message=$(git log -1 --format=%s)" >> $GITHUB_OUTPUT
+            echo "sha=$PUSH_SHA" >> $GITHUB_OUTPUT
+            EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            echo "message<<$EOF" >> $GITHUB_OUTPUT
+            git log -1 --format=%s >> $GITHUB_OUTPUT
+            echo "$EOF" >> $GITHUB_OUTPUT
             echo "author=$(git log -1 --format=%an)" >> $GITHUB_OUTPUT
             echo "reviewers=" >> $GITHUB_OUTPUT
           fi
@@ -139,9 +153,9 @@ jobs:
         id: existing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ steps.commit-info.outputs.sha }}
         run: |
-          SHORT_SHA="${{ steps.commit-info.outputs.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:7}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
 
           EXISTING=$(gh issue list --state open --label "review-pending" --search "$SHORT_SHA in:title" --json number --jq '.[0].number // empty')
 
@@ -157,8 +171,10 @@ jobs:
         if: steps.existing.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ steps.commit-info.outputs.sha }}
+          REPO_FULL_NAME: ${{ github.repository }}
         run: |
-          gh api repos/${{ github.repository }}/statuses/${{ steps.commit-info.outputs.sha }} \
+          gh api "repos/$REPO_FULL_NAME/statuses/$COMMIT_SHA" \
             -f state='pending' \
             -f context='peer-review' \
             -f description='Awaiting non-blocking review'
@@ -167,8 +183,10 @@ jobs:
       - name: Generate inline diff (for small changes)
         if: steps.existing.outputs.exists != 'true'
         id: diff
+        env:
+          COMMIT_SHA: ${{ steps.commit-info.outputs.sha }}
         run: |
-          DIFF=$(git show --no-color --stat --patch --no-prefix ${{ steps.commit-info.outputs.sha }} | tail -n +2)
+          DIFF=$(git show --no-color --stat --patch --no-prefix "$COMMIT_SHA" | tail -n +2)
           DIFF_LINES=$(echo "$DIFF" | wc -l)
 
           if [ "$DIFF_LINES" -le 60 ]; then
@@ -200,36 +218,43 @@ jobs:
         id: create-issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ steps.commit-info.outputs.sha }}
+          COMMIT_MESSAGE: ${{ steps.commit-info.outputs.message }}
+          COMMIT_AUTHOR: ${{ steps.commit-info.outputs.author }}
+          COMMIT_REVIEWERS: ${{ steps.commit-info.outputs.reviewers }}
+          INCLUDE_DIFF: ${{ steps.diff.outputs.include_diff }}
+          DIFF_LINES: ${{ steps.diff.outputs.diff_lines }}
+          DIFF_CONTENT: ${{ steps.diff.outputs.diff }}
+          REPO_FULL_NAME: ${{ github.repository }}
         run: |
-          SHA="${{ steps.commit-info.outputs.sha }}"
-          SHORT_SHA="${SHA:0:7}"
-          MESSAGE="${{ steps.commit-info.outputs.message }}"
-          AUTHOR="${{ steps.commit-info.outputs.author }}"
-          REVIEWERS="${{ steps.commit-info.outputs.reviewers }}"
-          REPO_URL="https://github.com/${{ github.repository }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          REPO_URL="https://github.com/$REPO_FULL_NAME"
 
           # Build diff section
-          if [ "${{ steps.diff.outputs.include_diff }}" == "true" ]; then
-            DIFF_SECTION="
+          if [ "$INCLUDE_DIFF" == "true" ]; then
+            DIFF_SECTION=$(cat <<'DIFFEOF'
 
           <details>
-          <summary>📝 Inline diff (${{ steps.diff.outputs.diff_lines }} lines)</summary>
+          <summary>
+DIFFEOF
+)
+            DIFF_SECTION="${DIFF_SECTION}📝 Inline diff (${DIFF_LINES} lines)</summary>
 
           \`\`\`diff
-          ${{ steps.diff.outputs.diff }}
+          ${DIFF_CONTENT}
           \`\`\`
 
           </details>"
           else
             DIFF_SECTION="
 
-          > 📄 Large change (${{ steps.diff.outputs.diff_lines }} lines) - [view full diff]($REPO_URL/commit/$SHA)"
+          > 📄 Large change (${DIFF_LINES} lines) - [view full diff]($REPO_URL/commit/$COMMIT_SHA)"
           fi
 
           # Build reviewer checklist
           REVIEWER_CHECKLIST=""
-          if [ -n "$REVIEWERS" ]; then
-            IFS=',' read -ra REVIEWER_ARRAY <<< "$REVIEWERS"
+          if [ -n "$COMMIT_REVIEWERS" ]; then
+            IFS=',' read -ra REVIEWER_ARRAY <<< "$COMMIT_REVIEWERS"
             for reviewer in "${REVIEWER_ARRAY[@]}"; do
               reviewer=$(echo "$reviewer" | xargs)  # trim whitespace
               if [ -n "$reviewer" ]; then
@@ -241,9 +266,9 @@ jobs:
 
           BODY="## Non-Blocking Review Request
 
-          **Commit:** [\`$SHORT_SHA\`]($REPO_URL/commit/$SHA)
-          **Author:** $AUTHOR
-          **Message:** $MESSAGE
+          **Commit:** [\`$SHORT_SHA\`]($REPO_URL/commit/$COMMIT_SHA)
+          **Author:** $COMMIT_AUTHOR
+          **Message:** $COMMIT_MESSAGE
           $DIFF_SECTION
 
           ---
@@ -281,7 +306,7 @@ jobs:
 
           # Create the issue
           ISSUE_URL=$(gh issue create \
-            --title "[Review] $MESSAGE ($SHORT_SHA)" \
+            --title "[Review] $COMMIT_MESSAGE ($SHORT_SHA)" \
             --body "$BODY" \
             --label "review-pending")
 
@@ -309,6 +334,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
+          REPO_FULL_NAME: ${{ github.repository }}
         run: |
           # Extract commit SHA from issue body (looks for /commit/SHA pattern)
           FULL_SHA=$(echo "$ISSUE_BODY" | grep -oE 'github\.com/.*/commit/[a-f0-9]+' | grep -oE '[a-f0-9]{40}' | head -n1)
@@ -318,7 +344,7 @@ jobs:
             SHORT_SHA=$(echo "$ISSUE_TITLE" | grep -oE '\([a-f0-9]{7}\)' | tr -d '()')
             if [ -n "$SHORT_SHA" ]; then
               # Get full SHA from short
-              FULL_SHA=$(gh api repos/${{ github.repository }}/commits/$SHORT_SHA --jq '.sha' 2>/dev/null || echo "")
+              FULL_SHA=$(gh api "repos/$REPO_FULL_NAME/commits/$SHORT_SHA" --jq '.sha' 2>/dev/null || echo "")
             fi
           fi
 
@@ -329,7 +355,7 @@ jobs:
             gh issue edit "$ISSUE_NUM" --remove-label "review-pending" 2>/dev/null || true
             gh issue edit "$ISSUE_NUM" --add-label "review-accepted" 2>/dev/null || true
 
-            gh api repos/${{ github.repository }}/statuses/$FULL_SHA \
+            gh api "repos/$REPO_FULL_NAME/statuses/$FULL_SHA" \
               -f state='success' \
               -f context='peer-review' \
               -f description='Non-blocking review completed ✅'
