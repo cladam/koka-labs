@@ -73,11 +73,11 @@ on:
 
   # Also trigger on every push to main for full audit trail
   push:
-    #branches:
-    #  - main
+    branches:
+      - main
     # --- (A) Uncomment to also trigger on review tags ---
-    tags:
-      - 'review/*'
+    #tags:
+    #  - 'review/*'
 
   # Trigger when review issues are closed (updates commit status)
   issues:
@@ -93,12 +93,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     # --- (B) Uncomment to only review conventional commit types ---
-    # if: >-
-    #   github.event_name == 'workflow_dispatch' ||
-    #   contains(github.event.head_commit.message, 'feat:') ||
-    #   contains(github.event.head_commit.message, 'fix:') ||
-    #   contains(github.event.head_commit.message, 'refactor:') ||
-    #   contains(github.event.head_commit.message, 'perf:')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, 'feat:') ||
+      contains(github.event.head_commit.message, 'fix:') ||
+      contains(github.event.head_commit.message, 'refactor:') ||
+      contains(github.event.head_commit.message, 'perf:')
     permissions:
       issues: write
       statuses: write
