@@ -722,9 +722,18 @@ pub fun main() : io ()
           assert/is-true(opts.show-all)
         _ -> assert/is-true(False)
 
-  // --- parse-args: -l ---
+    // --- parse-args: -G ---
+    test("parse-args -G enables no-group")
+      match parse-args(["-G"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.no-group)
+        _ -> assert/is-true(False)
 
-
+    test("parse-args --no-group enables no-group")
+      match parse-args(["--no-group"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.no-group)
+        _ -> assert/is-true(False)
 
   
   // --- file-info integration tests ---

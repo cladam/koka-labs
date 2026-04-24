@@ -91,6 +91,7 @@ concurrency:
 jobs:
   create-review:
     runs-on: ubuntu-latest
+    # Comment out this if statement if using the conventional commit flow
     # if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     # --- (B) Conventional commit filter: only review meaningful changes ---
     if: >-
