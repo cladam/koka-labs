@@ -735,6 +735,13 @@ pub fun main() : io ()
           assert/is-true(opts.no-group)
         _ -> assert/is-true(False)
 
+    // -- parse-args: -g for no owner ---
+    test("parse-args -g enables no-owner")
+      match parse-args(["-g"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.no-owner)
+        _ -> assert/is-true(False)
+
   
   // --- file-info integration tests ---
   println("")

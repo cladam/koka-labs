@@ -233,6 +233,7 @@ pub struct options
   ignore-patterns : list<string> = [] // -I
   reverse         : bool = False // -r
   no-group        : bool = False // -G, --no-group
+  no-owner        : bool = False // -g
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
   sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
@@ -362,6 +363,7 @@ val usage = [
     "  -d, --directory            list directories themselves, not their contents",
     "  -F, --classify[=WHEN]      append indicator (one of */=>@|) to entries WHEN",
     "  -f                         same as -a -U",
+    "  -g                         like -l, but do not list owner",    
     "  -G, --no-group             in a long listing, don't print group names",
     "      --file-type            like -F, except do not append '*'",
     "      --hide=PATTERN         do not list implied entries matching shell PATTERN",
@@ -491,6 +493,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'd' -> False
           'f' -> False
           'F' -> False
+          'g' -> False
           'G' -> False
           'i' -> False
           'I' -> False
@@ -522,6 +525,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'f' -> o(show-all = True, sort-by = SortNone, long-format = False)
               // -F shouldn't follow symlinks
               'F' -> o(classify = ClassifyAlways)
+              'g' -> o(long-format = True, no-owner = True, one-entry = False, force-columns = False)
               'G' -> o(no-group = True)
               'i' -> o(print-inode = True)
               'l' -> o(long-format = True, one-entry = False, force-columns = False)
@@ -775,9 +779,10 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
             if target.is-empty then "" else " -> " ++ target
           else ""
         val ts = format-timestamp(fi.fi-mtime-sec)
+        val op = if opts.no-owner then "" else ljust(fi.fi-owner, ow) ++ " "
         val gp = if opts.no-group then "" else ljust(fi.fi-group, gw) ++ " "
         echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
-               ljust(fi.fi-owner, ow) ++ " " ++ gp ++
+               op ++ gp ++
                rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
       Nothing ->
         echoln("? " ++ name)
