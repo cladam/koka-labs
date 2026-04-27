@@ -742,7 +742,13 @@ pub fun main() : io ()
           assert/is-true(opts.no-owner)
         _ -> assert/is-true(False)
 
-  
+    test("parse-args -o enables no-group")
+      match parse-args(["-o"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.no-group)
+          assert/is-true(opts.long-format)
+        _ -> assert/is-true(False)
+
   // --- file-info integration tests ---
   println("")
   println(bold("Running file-info integration tests..."))

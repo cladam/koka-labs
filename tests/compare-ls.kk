@@ -387,3 +387,9 @@ pub fun main() : io ()
       val gnu = run-gnu-ls("-lg", ".")
       val koka = run-koka-ls(".".path, Options(long-format = True, no-owner = True))
       assert/is-true(gnu == koka)
+
+    // --- no-group (-o) comparison tests (same as -lG) ---
+    itest("-o matches GNU ls -o")
+      val gnu = run-gnu-ls("-o", ".")
+      val koka = run-koka-ls(".".path, Options(long-format = True, no-group = True))
+      assert/is-true(gnu == koka)
