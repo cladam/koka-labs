@@ -59,8 +59,7 @@ Run all tests with the helper script:
 ./test-ls
 ```
 
-The testing framework is inspired by [KUnit](https://github.com/koka-community/kunit) and extended for my needs.
-See [tests/kunit.kk](tests/kunit.kk).
+The testing framework is [kunit](https://github.com/cladam/kunit), managed as a git submodule under `lib/kunit/`.
 
 ---
 

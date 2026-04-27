@@ -8,6 +8,7 @@ git submodules under `lib/` and made available to the compiler with the `-i` fla
 | Library | Description | Repository |
 |---------|-------------|------------|
 | [klap](klap/) | CLI argument parsing | [cladam/klap](https://github.com/cladam/klap) |
+| [kunit](kunit/) | Lightweight xUnit-style test framework | [cladam/kunit](https://github.com/cladam/kunit) |
 
 ## Adding a dependency
 

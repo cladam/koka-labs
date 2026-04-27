@@ -24,6 +24,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Koka
         run: |
@@ -53,7 +55,7 @@ jobs:
 
       - name: Run tests
         run: |
-          koka tests/test-ls.kk 2>&1 | tee test-build.log
+          koka -ilib/kunit tests/test-ls.kk 2>&1 | tee test-build.log
           TEST_BINARY=$(grep '^created :' test-build.log | awk '{print $3}')
           "$TEST_BINARY"
 
@@ -65,7 +67,7 @@ jobs:
         env:
           LC_ALL: C
         run: |
-          koka tests/compare-ls.kk 2>&1 | tee compare-build.log
+          koka -ilib/kunit tests/compare-ls.kk 2>&1 | tee compare-build.log
           COMPARE_BINARY=$(grep '^created :' compare-build.log | awk '{print $3}')
           if [ "$RUNNER_OS" = "macOS" ]; then
             "$COMPARE_BINARY" gls

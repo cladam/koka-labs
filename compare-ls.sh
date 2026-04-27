@@ -11,7 +11,7 @@ if [ ! -f "$source" ]; then
 fi
 
 # Build and capture output; only show it on failure
-build_output=$(koka "$source" 2>&1)
+build_output=$(koka -ilib/kunit "$source" 2>&1)
 
 binary=$(echo "$build_output" | grep "^created :" | awk '{print $3}')
 

@@ -1,3 +1,6 @@
 [submodule "lib/klap"]
 	path = lib/klap
 	url = https://github.com/cladam/klap.git
+[submodule "lib/kunit"]
+	path = lib/kunit
+	url = https://github.com/cladam/kunit.git
