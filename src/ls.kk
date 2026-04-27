@@ -232,7 +232,7 @@ pub struct options
   hide-patterns   : list<string> = [] // --hide
   ignore-patterns : list<string> = [] // -I
   reverse         : bool = False // -r
-  no-group        : bool = False // -G, --no-group
+  no-group        : bool = False // -G, --no-group, -o
   no-owner        : bool = False // -g
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
@@ -373,6 +373,7 @@ val usage = [
     "  -I, --ignore=PATTERN       do not list entries matching shell PATTERN",
     "  -i, --inode                print the index number of each file",
     "  -l                         use a long listing format",
+    "  -o                         like -l, but do not list group information",
     "  -p, --indicator-style=slash",
     "                             append / indicator to directories",
     "  -r, --reverse              reverse order while sorting",
@@ -498,6 +499,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'i' -> False
           'I' -> False
           'l' -> False
+          'o' -> False
           'p' -> False
           'r' -> False
           'R' -> False
@@ -529,6 +531,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'G' -> o(no-group = True)
               'i' -> o(print-inode = True)
               'l' -> o(long-format = True, one-entry = False, force-columns = False)
+              'o' -> o(no-group = True, long-format = True, one-entry = False, force-columns = False)
               'p' -> o(indicator = IndicatorSlash)
               'r' -> o(reverse = True)
               'R' -> o(recurse = True)

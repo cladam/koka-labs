@@ -108,8 +108,8 @@ See [tests/kunit.kk](tests/kunit.kk).
 [GNU §10.1.2](https://www.gnu.org/software/coreutils/manual/html_node/What-information-is-listed.html) ·
 [GNU §10.1.5](https://www.gnu.org/software/coreutils/manual/html_node/Formatting-file-timestamps.html)
 - [x] `-l, --format=long` — long format (type, mode, links, owner, group, size, timestamp, name)
-- [ ] `-g` — long format, omit owner
-- [ ] `-o` — long format, omit group (equivalent to `-l -G`)
+- [x] `-g` — long format, omit owner
+- [x] `-o` — long format, omit group (equivalent to `-l -G`)
 - [x] `-G, --no-group` — suppress group in long listing
 - [ ] `-n, --numeric-uid-gid` — long format with numeric user and group IDs
 - [ ] `--author` — with `-l`, print author of each file
