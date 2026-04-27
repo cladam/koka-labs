@@ -235,6 +235,7 @@ pub struct options
   no-group        : bool = False // -G, --no-group, -o
   no-owner        : bool = False // -g
   numeric-ids     : bool = False // -n, --numeric-uid-gid
+  show-author     : bool = False // --author
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
   sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
@@ -359,6 +360,7 @@ val usage = [
     "",
     "  -a, --all                  do not ignore entries starting with .",
     "  -A, --almost-all           like -a, but do not list . and ..",
+    "      --author               with -l, print the author of each file",
     "  -B, --ignore-backups       do not list implied entries ending with ~",
     "  -C                         list entries by columns",
     "  -d, --directory            list directories themselves, not their contents",
@@ -471,6 +473,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
         Nothing   -> InvalidFlag("--indicator-style=" ++ style-str)
     Cons("--numeric-uid-gid", rest) ->
       parse-args(rest, opts(long-format = True, numeric-ids = True, one-entry = False, force-columns = False), paths)
+    Cons("--author", rest) ->
+      parse-args(rest, opts(show-author = True), paths)
     Cons("--no-group", rest) ->
       parse-args(rest, opts(no-group = True), paths)
     Cons("--inode", rest) ->
@@ -765,6 +769,12 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
     match x.snd
       Just(fi) -> max(mx, (if opts.numeric-ids then fi.fi-uid.show else fi.fi-owner).count)
       Nothing  -> mx
+  val aw = if opts.show-author then
+      infos.foldl(0) fn(mx, x)
+        match x.snd
+          Just(fi) -> max(mx, fi.fi-owner.count)
+          Nothing  -> mx
+    else 0
   val gw = infos.foldl(0) fn(mx, x)
     match x.snd
       Just(fi) -> max(mx, (if opts.numeric-ids then fi.fi-gid.show else fi.fi-group).count)
@@ -792,8 +802,9 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
         val group-str = if opts.numeric-ids then fi.fi-gid.show else fi.fi-group
         val op = if opts.no-owner then "" else ljust(owner-str, ow) ++ " "
         val gp = if opts.no-group then "" else ljust(group-str, gw) ++ " "
+        val ap = if opts.show-author then ljust(fi.fi-owner, aw) ++ " " else ""
         echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
-               op ++ gp ++
+               op ++ gp ++ ap ++
                rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
       Nothing ->
         echoln("? " ++ name)
