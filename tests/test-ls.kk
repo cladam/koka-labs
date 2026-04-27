@@ -749,6 +749,30 @@ pub fun main() : io ()
           assert/is-true(opts.long-format)
         _ -> assert/is-true(False)
 
+    // --- parse-args: -n for numeric uid/gid ---
+    test("parse-args -n enables numeric-ids and long-format")
+      match parse-args(["-n"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.numeric-ids)
+          assert/is-true(opts.long-format)
+        _ -> assert/is-true(False)
+
+    test("parse-args --numeric-uid-gid enables numeric-ids and long-format")
+      match parse-args(["--numeric-uid-gid"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.numeric-ids)
+          assert/is-true(opts.long-format)
+        _ -> assert/is-true(False)
+
+    test("parse-args -n disables one-entry and force-columns")
+      match parse-args(["-1n"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.numeric-ids)
+          assert/is-true(opts.long-format)
+          assert/is-false(opts.one-entry)
+          assert/is-false(opts.force-columns)
+        _ -> assert/is-true(False)
+
   // --- file-info integration tests ---
   println("")
   println(bold("Running file-info integration tests..."))

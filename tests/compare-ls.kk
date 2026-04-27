@@ -393,3 +393,14 @@ pub fun main() : io ()
       val gnu = run-gnu-ls("-o", ".")
       val koka = run-koka-ls(".".path, Options(long-format = True, no-group = True))
       assert/is-true(gnu == koka)
+
+    // --- numeric uid/gid (-n) comparison tests ---
+    itest("-n matches GNU ls -n")
+      val gnu    = run-gnu-ls("-n", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, numeric-ids = True))
+      assert/is-true(gnu == koka)
+
+    itest("-na matches GNU ls -na")
+      val gnu    = run-gnu-ls("-na", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, numeric-ids = True, show-all = True))
+      assert/is-true(gnu == koka)

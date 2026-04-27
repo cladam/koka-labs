@@ -234,6 +234,7 @@ pub struct options
   reverse         : bool = False // -r
   no-group        : bool = False // -G, --no-group, -o
   no-owner        : bool = False // -g
+  numeric-ids     : bool = False // -n, --numeric-uid-gid
   print-inode     : bool = False // -i
   recurse         : bool = False // -R
   sort-by         : sort-key = SortName // --sort=WORD, -S, -t, -U -X
@@ -373,6 +374,7 @@ val usage = [
     "  -I, --ignore=PATTERN       do not list entries matching shell PATTERN",
     "  -i, --inode                print the index number of each file",
     "  -l                         use a long listing format",
+    "  -n, --numeric-uid-gid      like -l, but list numeric user and group IDs",
     "  -o                         like -l, but do not list group information",
     "  -p, --indicator-style=slash",
     "                             append / indicator to directories",
@@ -467,6 +469,8 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
       match parse-indicator-style(style-str)
         Just(sty) -> parse-args(rest, opts(indicator = sty), paths)
         Nothing   -> InvalidFlag("--indicator-style=" ++ style-str)
+    Cons("--numeric-uid-gid", rest) ->
+      parse-args(rest, opts(long-format = True, numeric-ids = True, one-entry = False, force-columns = False), paths)
     Cons("--no-group", rest) ->
       parse-args(rest, opts(no-group = True), paths)
     Cons("--inode", rest) ->
@@ -499,6 +503,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
           'i' -> False
           'I' -> False
           'l' -> False
+          'n' -> False
           'o' -> False
           'p' -> False
           'r' -> False
@@ -531,6 +536,7 @@ pub fun parse-args(args : list<string>, opts : options = Options(), paths : list
               'G' -> o(no-group = True)
               'i' -> o(print-inode = True)
               'l' -> o(long-format = True, one-entry = False, force-columns = False)
+              'n' -> o(long-format = True, numeric-ids = True, one-entry = False, force-columns = False)
               'o' -> o(no-group = True, long-format = True, one-entry = False, force-columns = False)
               'p' -> o(indicator = IndicatorSlash)
               'r' -> o(reverse = True)
@@ -757,11 +763,11 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
       Nothing  -> mx
   val ow = infos.foldl(0) fn(mx, x)
     match x.snd
-      Just(fi) -> max(mx, fi.fi-owner.count)
+      Just(fi) -> max(mx, (if opts.numeric-ids then fi.fi-uid.show else fi.fi-owner).count)
       Nothing  -> mx
   val gw = infos.foldl(0) fn(mx, x)
     match x.snd
-      Just(fi) -> max(mx, fi.fi-group.count)
+      Just(fi) -> max(mx, (if opts.numeric-ids then fi.fi-gid.show else fi.fi-group).count)
       Nothing  -> mx
   val sw = infos.foldl(0) fn(mx, x)
     match x.snd
@@ -782,8 +788,10 @@ pub fun format-long-listing(entries : list<(string, int, string)>, opts : option
             if target.is-empty then "" else " -> " ++ target
           else ""
         val ts = format-timestamp(fi.fi-mtime-sec)
-        val op = if opts.no-owner then "" else ljust(fi.fi-owner, ow) ++ " "
-        val gp = if opts.no-group then "" else ljust(fi.fi-group, gw) ++ " "
+        val owner-str = if opts.numeric-ids then fi.fi-uid.show else fi.fi-owner
+        val group-str = if opts.numeric-ids then fi.fi-gid.show else fi.fi-group
+        val op = if opts.no-owner then "" else ljust(owner-str, ow) ++ " "
+        val gp = if opts.no-group then "" else ljust(group-str, gw) ++ " "
         echoln(ip ++ fi.fi-mode ++ " " ++ rjust(fi.fi-nlink.show, nw) ++ " " ++
                op ++ gp ++
                rjust(fi.fi-size.show, sw) ++ " " ++ ts ++ " " ++ name ++ sl)
