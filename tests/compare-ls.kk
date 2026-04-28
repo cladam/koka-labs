@@ -404,3 +404,9 @@ pub fun main() : io ()
       val gnu    = run-gnu-ls("-na", ".")
       val koka   = run-koka-ls(".".path, Options(long-format = True, numeric-ids = True, show-all = True))
       assert/is-true(gnu == koka)
+
+    // --- --author comparison tests ---
+    itest("-l --author matches GNU ls -l --author")
+      val gnu    = run-gnu-ls("-l --author", ".")
+      val koka   = run-koka-ls(".".path, Options(long-format = True, show-author = True))
+      assert/is-true(gnu == koka)

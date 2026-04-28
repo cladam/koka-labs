@@ -773,6 +773,13 @@ pub fun main() : io ()
           assert/is-false(opts.force-columns)
         _ -> assert/is-true(False)
 
+    // --- parse-args: --author ---
+    test("parse-args --author enables show-author")
+      match parse-args(["--author"])
+        Parsed(opts, _) ->
+          assert/is-true(opts.show-author)
+        _ -> assert/is-true(False)
+
   // --- file-info integration tests ---
   println("")
   println(bold("Running file-info integration tests..."))
