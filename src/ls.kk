@@ -27,7 +27,6 @@ import std/os/dir
 import std/os/env
 import version
 import columns
-import klap
 
 // Import my C code
 extern import
@@ -177,6 +176,48 @@ pub type classify-when
   ClassifyAlways
   ClassifyAuto
   ClassifyNever
+
+fun parse-classify-when(s : string) : maybe<classify-when>
+  match s
+    "always" -> Just(ClassifyAlways)
+    "yes"    -> Just(ClassifyAlways)
+    "force"  -> Just(ClassifyAlways)
+    "auto"   -> Just(ClassifyAuto)
+    "tty"    -> Just(ClassifyAuto)
+    "never"  -> Just(ClassifyNever)
+    "no"     -> Just(ClassifyNever)
+    "none"   -> Just(ClassifyNever)
+    _        -> Nothing
+
+fun parse-indicator-style(s : string) : maybe<indicator-style>
+  match s
+    "none"      -> Just(IndicatorNone)
+    "slash"     -> Just(IndicatorSlash)
+    "file-type" -> Just(IndicatorFileType)
+    "classify"  -> Just(IndicatorClassify)
+    _           -> Nothing
+
+fun parse-sort-key(s : string) : maybe<sort-key>
+  match s
+    "none"      -> Just(SortNone)
+    "name"      -> Just(SortName)
+    "size"      -> Just(SortSize)
+    "time"      -> Just(SortTime)
+    "extension" -> Just(SortExtension)
+    "width"     -> Just(SortWidth)
+    "version"   -> Just(SortVersion)
+    _           -> Nothing
+
+fun parse-time-kind(s : string) : maybe<time-kind>
+  match s
+    "mtime"         -> Just(TimeMtime)
+    "modification"  -> Just(TimeMtime)
+    "atime"         -> Just(TimeAtime)
+    "access"        -> Just(TimeAtime)
+    "use"           -> Just(TimeAtime)
+    "ctime"         -> Just(TimeCtime)
+    "status"        -> Just(TimeCtime)
+    _               -> Nothing
 
 pub struct options
   show-all        : bool = False // -a
@@ -370,161 +411,11 @@ fun show-version() : bio ()
   echoln("Repository: " ++ repository)
 
 // ---------------------------------------------------------------------------
-// CLI definition using klap
-// ---------------------------------------------------------------------------
-
-val kls-command = command("kls")
-  .version(version)
-  .about("List information about the FILEs (the current directory by default).\nSort entries alphabetically if none of -cftuvSUX nor --sort is specified.")
-  .usage("Usage: kls [OPTION]... [FILE]...")
-  .author(author)
-  // Simple boolean flags
-  .arg(flag-short("all", 'a').help("do not ignore entries starting with .")
-        .action("filter", "all"))
-  .arg(flag-short("almost-all", 'A').help("like -a, but do not list . and ..")
-        .action("filter", "almost-all"))
-  .arg(flag-short("ignore-backups", 'B').help("do not list implied entries ending with ~"))
-  .arg(flag-short("directory", 'd').help("list directories themselves, not their contents"))
-  .arg(flag-short("no-group", 'G').help("in a long listing, don't print group names"))
-  .arg(flag-short("inode", 'i').help("print the index number of each file"))
-  .arg(flag-short("reverse", 'r').help("reverse order while sorting"))
-  .arg(flag-short("recursive", 'R').help("list subdirectories recursively"))
-  .arg(flag("author").help("with -l, print the author of each file"))
-  .arg(flag("group-directories-first").help("group directories before files"))
-  .arg(flag("file-type").help("like -F, except do not append '*'")
-        .action("indicator-style", "file-type"))
-  // Options with values
-  .arg(option("sort").value-name("WORD")
-        .values(["none", "name", "size", "time", "extension", "width", "version"])
-        .default-value("name")
-        .help("sort by WORD: none (-U), name, size (-S), time (-t), extension (-X), version (-v), width"))
-  .arg(option("time").value-name("WORD")
-        .values(["mtime", "modification", "atime", "access", "use", "ctime", "status"])
-        .default-value("mtime")
-        .help("select which timestamp to use: mtime (default), atime (-u), ctime (-c)"))
-  .arg(option("classify")
-        .optional-value("always")
-        .values(["always", "yes", "force", "auto", "tty", "never", "no", "none"])
-        .help("append indicator (one of */=>@|) to entries"))
-  .arg(option("indicator-style").value-name("WORD")
-        .values(["none", "slash", "file-type", "classify"])
-        .default-value("none")
-        .help("none, slash (-p), file-type, classify (-F)"))
-  .arg(option-short("ignore", 'I').value-name("PATTERN").multiple
-        .help("do not list entries matching shell PATTERN"))
-  .arg(option("hide").value-name("PATTERN").multiple
-        .help("do not list implied entries matching shell PATTERN"))
-  // Hidden options for action flag targets
-  .arg(option("format").hidden.default-value("default"))
-  .arg(option("filter").hidden.default-value("default"))
-  // Short-only action flags that set values on hidden options
-  .arg(flag-short("", 'S').no-long.action("sort", "size").hidden.help("sort by file size, largest first"))
-  .arg(flag-short("", 't').no-long.action("sort", "time").hidden.help("sort by time, newest first"))
-  .arg(flag-short("", 'U').no-long.action("sort", "none").hidden.help("do not sort; list in directory order"))
-  .arg(flag-short("", 'v').no-long.action("sort", "version").hidden.help("natural sort of (version) numbers within text"))
-  .arg(flag-short("", 'X').no-long.action("sort", "extension").hidden.help("sort alphabetically by entry extension"))
-  .arg(flag-short("", 'c').no-long.action("time", "ctime").hidden.help("with -t: sort by ctime"))
-  .arg(flag-short("", 'u').no-long.action("time", "atime").hidden.help("with -t: sort by atime"))
-  .arg(flag-short("", 'l').no-long.action("format", "long").hidden.help("use a long listing format"))
-  .arg(flag-short("", '1').no-long.action("format", "one").hidden.help("list one file per line"))
-  .arg(flag-short("", 'C').no-long.action("format", "columns").hidden.help("list entries by columns"))
-  .arg(flag-short("", 'p').no-long.action("indicator-style", "slash").hidden.help("append / indicator to directories"))
-  // -F as action on classify
-  .arg(flag-short("", 'F').no-long.action("classify", "always").hidden.help("append indicator to entries"))
-  // Multi-action flags: -g, -n, -o, -f
-  .arg(flag-short("", 'g').no-long.action("format", "long").action("filter", "no-owner").hidden)
-  .arg(flag-short("", 'n').no-long.action("format", "long").action("numeric-uid-gid", "true").hidden)
-  .arg(flag-short("", 'o').no-long.action("format", "long").action("filter", "no-group").hidden)
-  .arg(flag-short("", 'f').no-long.action("filter", "all").action("sort", "none").action("format", "default").hidden)
-  .arg(flag("numeric-uid-gid").long("numeric-uid-gid")
-        .action("format", "long").action("numeric-uid-gid", "true")
-        .help("like -l, but list numeric user and group IDs"))
-  // Positional
-  .arg(positional("FILE").multiple)
-
-// ---------------------------------------------------------------------------
-// Convert klap arg-matches to options struct
-// ---------------------------------------------------------------------------
-
-fun parse-sort-key(s : string) : sort-key
-  match s
-    "none"      -> SortNone
-    "size"      -> SortSize
-    "time"      -> SortTime
-    "extension" -> SortExtension
-    "width"     -> SortWidth
-    "version"   -> SortVersion
-    _           -> SortName
-
-fun parse-time-kind(s : string) : time-kind
-  match s
-    "atime"         -> TimeAtime
-    "access"        -> TimeAtime
-    "use"           -> TimeAtime
-    "ctime"         -> TimeCtime
-    "status"        -> TimeCtime
-    _               -> TimeMtime
-
-fun parse-classify-when(s : string) : classify-when
-  match s
-    "always" -> ClassifyAlways
-    "yes"    -> ClassifyAlways
-    "force"  -> ClassifyAlways
-    "auto"   -> ClassifyAuto
-    "tty"    -> ClassifyAuto
-    "never"  -> ClassifyNever
-    "no"     -> ClassifyNever
-    "none"   -> ClassifyNever
-    _        -> ClassifyNever
-
-fun parse-indicator-style(s : string) : indicator-style
-  match s
-    "slash"     -> IndicatorSlash
-    "file-type" -> IndicatorFileType
-    "classify"  -> IndicatorClassify
-    _           -> IndicatorNone
-
-pub fun matches-to-options(m : arg-matches) : options
-  val format-str = m.get-one-or("format", "default")
-  val filter-str = m.get-one-or("filter", "default")
-  val long-format = format-str == "long"
-  val one-entry = format-str == "one"
-  val force-columns = format-str == "columns"
-  val show-all = filter-str == "all"
-  val almost-all = filter-str == "almost-all"
-  val no-owner = filter-str == "no-owner" || m.get-flag("g")
-  val no-group-from-filter = filter-str == "no-group"
-  val numeric-ids = m.get-one-or("numeric-uid-gid", "false") == "true"
-  val classify-str = m.get-one("classify")
-  val classify-val = match classify-str
-    Just(s) -> parse-classify-when(s)
-    Nothing -> ClassifyNever
-  Options(
-    show-all = show-all,
-    almost-all = almost-all,
-    ignore-backups = m.get-flag("ignore-backups"),
-    force-columns = force-columns,
-    dir-only = m.get-flag("directory"),
-    classify = classify-val,
-    indicator = parse-indicator-style(m.get-one-or("indicator-style", "none")),
-    long-format = long-format,
-    hide-patterns = m.get-many("hide"),
-    ignore-patterns = m.get-many("ignore"),
-    reverse = m.get-flag("reverse"),
-    no-group = m.get-flag("no-group") || no-group-from-filter,
-    no-owner = no-owner,
-    numeric-ids = numeric-ids,
-    show-author = m.get-flag("author"),
-    print-inode = m.get-flag("inode"),
-    recurse = m.get-flag("recursive"),
-    sort-by = parse-sort-key(m.get-one-or("sort", "name")),
-    time-type = parse-time-kind(m.get-one-or("time", "mtime")),
-    group-dirs = m.get-flag("group-directories-first"),
-    one-entry = one-entry
-  )
-
-// ---------------------------------------------------------------------------
-// Backward-compatible parse-args — used by tests
+// Argument parsing
+// GNU ls supports combined short flags like -ar, -ra, etc.
+// Separate flag arguments (starting with '-') from path arguments.
+// "--" terminates flag parsing, everything after is a path.
+// Long options --help and --version are matched before short-flag expansion.
 // ---------------------------------------------------------------------------
 
 pub type parse-result
@@ -533,12 +424,143 @@ pub type parse-result
   VersionRequested
   InvalidFlag(flag : string)
 
-pub fun parse-args(args : list<string>) : div parse-result
-  match try-klap({ kls-command.parse(args) })
-    Right(m) -> Parsed(matches-to-options(m), m.get-positionals)
-    Left("__help__") -> HelpRequested
-    Left("__version__") -> VersionRequested
-    Left(msg) -> InvalidFlag(msg)
+pub fun parse-args(args : list<string>, opts : options = Options(), paths : list<string> = []) : parse-result
+  match args
+    Nil -> Parsed(opts, paths.reverse)
+    Cons("--", rest) -> Parsed(opts, paths.reverse ++ rest)
+    Cons("--help", _) -> HelpRequested
+    Cons("--version", _) -> VersionRequested
+    // Long options — one match per --flag
+    Cons("--all", rest) ->
+      parse-args(rest, opts(show-all = True, almost-all = False), paths)
+    Cons("--almost-all", rest) ->
+      parse-args(rest, opts(almost-all = True, show-all = False), paths)
+    Cons("--ignore-backups", rest) ->
+      parse-args(rest, opts(ignore-backups = True), paths)
+    Cons("--reverse", rest) ->
+      parse-args(rest, opts(reverse = True), paths)
+    Cons("--classify", rest) ->
+      parse-args(rest, opts(classify = ClassifyAlways), paths)
+    Cons(arg, rest) | arg.starts-with("--classify=").bool ->
+      val when-str = arg.slice.drop(11).string
+      match parse-classify-when(when-str)
+        Just(cw) -> parse-args(rest, opts(classify = cw), paths)
+        Nothing  -> InvalidFlag("--classify=" ++ when-str)
+    Cons("--directory", rest) ->
+      parse-args(rest, opts(dir-only = True), paths)
+    Cons("--sort=none", rest) ->
+      parse-args(rest, opts(sort-by = SortNone), paths)
+    Cons(arg, rest) | arg.starts-with("--sort=").bool ->
+      val sort-str = arg.slice.drop(7).string
+      match parse-sort-key(sort-str)
+        Just(sk) -> parse-args(rest, opts(sort-by = sk), paths)
+        Nothing  -> InvalidFlag("--sort=" ++ sort-str)
+    Cons("--recursive", rest) ->
+      parse-args(rest, opts(recurse = True), paths)
+    Cons(arg, rest) | arg.starts-with("--time=").bool ->
+      val time-str = arg.slice.drop(7).string
+      match parse-time-kind(time-str)
+        Just(tk) -> parse-args(rest, opts(time-type = tk), paths)
+        Nothing  -> InvalidFlag("--time=" ++ time-str)
+    Cons("--group-directories-first", rest) ->
+      parse-args(rest, opts(group-dirs = True), paths)
+    Cons("--file-type", rest) ->
+      parse-args(rest, opts(indicator = IndicatorFileType), paths)
+    Cons(arg, rest) | arg.starts-with("--indicator-style=").bool ->
+      val style-str = arg.slice.drop(18).string
+      match parse-indicator-style(style-str)
+        Just(sty) -> parse-args(rest, opts(indicator = sty), paths)
+        Nothing   -> InvalidFlag("--indicator-style=" ++ style-str)
+    Cons("--numeric-uid-gid", rest) ->
+      parse-args(rest, opts(long-format = True, numeric-ids = True, one-entry = False, force-columns = False), paths)
+    Cons("--author", rest) ->
+      parse-args(rest, opts(show-author = True), paths)
+    Cons("--no-group", rest) ->
+      parse-args(rest, opts(no-group = True), paths)
+    Cons("--inode", rest) ->
+      parse-args(rest, opts(print-inode = True), paths)
+    Cons(arg, rest) | arg.starts-with("--hide=").bool ->
+      val pat = arg.slice.drop(7).string
+      parse-args(rest, opts(hide-patterns = Cons(pat, opts.hide-patterns)), paths)
+    Cons(arg, rest) | arg.starts-with("--ignore=").bool ->
+      val pat = arg.slice.drop(9).string
+      parse-args(rest, opts(ignore-patterns = Cons(pat, opts.ignore-patterns)), paths)
+    // Unrecognised long options
+    Cons(arg, _) | arg.starts-with("--").bool ->
+      InvalidFlag(arg)
+    // Short flags — can be combined like -ar, -ra, etc.
+    Cons(arg, rest) | arg.starts-with("-").bool && arg != "-" ->
+      val chars = arg.slice.drop(1).string.list
+      val has-I = chars.any(fn(c) c == 'I')
+      val bad = chars.filter fn(c)
+        match c
+          'a' -> False
+          'A' -> False
+          'B' -> False
+          'c' -> False
+          'C' -> False
+          'd' -> False
+          'f' -> False
+          'F' -> False
+          'g' -> False
+          'G' -> False
+          'i' -> False
+          'I' -> False
+          'l' -> False
+          'n' -> False
+          'o' -> False
+          'p' -> False
+          'r' -> False
+          'R' -> False
+          'S' -> False
+          't' -> False
+          'u' -> False
+          'U' -> False
+          'v' -> False
+          'X' -> False
+          '1' -> False
+          _   -> True
+      match bad
+        Cons(c, _) -> InvalidFlag(string(c))
+        Nil ->
+          val new-opts = chars.filter(fn(c) c != 'I').foldl(opts) fn(o, c)
+            match c
+              'a' -> o(show-all = True, almost-all = False)
+              'A' -> o(almost-all = True, show-all = False)
+              'B' -> o(ignore-backups = True)
+              'c' -> o(time-type = TimeCtime)
+              'C' -> o(force-columns = True, one-entry = False, long-format = False)
+              'd' -> o(dir-only = True)
+              // TODO: GNU ls -f also disables -l, -s, --color, and -F.
+              // Add those overrides here later
+              'f' -> o(show-all = True, sort-by = SortNone, long-format = False)
+              // -F shouldn't follow symlinks
+              'F' -> o(classify = ClassifyAlways)
+              'g' -> o(long-format = True, no-owner = True, one-entry = False, force-columns = False)
+              'G' -> o(no-group = True)
+              'i' -> o(print-inode = True)
+              'l' -> o(long-format = True, one-entry = False, force-columns = False)
+              'n' -> o(long-format = True, numeric-ids = True, one-entry = False, force-columns = False)
+              'o' -> o(no-group = True, long-format = True, one-entry = False, force-columns = False)
+              'p' -> o(indicator = IndicatorSlash)
+              'r' -> o(reverse = True)
+              'R' -> o(recurse = True)
+              'S' -> o(sort-by = SortSize)
+              't' -> o(sort-by = SortTime)
+              'u' -> o(time-type = TimeAtime)
+              'U' -> o(sort-by = SortNone)
+              'v' -> o(sort-by = SortVersion)
+              'X' -> o(sort-by = SortExtension)
+              '1' -> o(one-entry = True, force-columns = False, long-format = False)
+              _   -> o
+          if has-I then
+            match rest
+              Cons(pat, rest2) ->
+                parse-args(rest2, new-opts(ignore-patterns = Cons(pat, new-opts.ignore-patterns)), paths)
+              Nil -> InvalidFlag("-I (missing pattern)")
+          else
+            parse-args(rest, new-opts, paths)
+    Cons(arg, rest) -> parse-args(rest, opts, Cons(arg, paths))
 
 // ---------------------------------------------------------------------------
 // Sorting — simple insertion sort, fine for directory listings.
@@ -866,122 +888,116 @@ fun main()
   val code = status
     with fun write(fd, s) print(s)    // bio handler: route to real stdout
     var exit-code := 0
-    val m = match try-klap({ kls-command.parse(get-args()) })
-      Right(matches) -> matches
-      Left("__help__") ->
-        show-help()
-        exit(0)
-      Left("__version__") ->
-        show-version()
-        exit(0)
-      Left(msg) ->
-        eprintln("kls: " ++ msg)
+    match get-args().parse-args
+      HelpRequested -> show-help()
+      VersionRequested -> show-version()
+      InvalidFlag(flag) ->
+        eprintln("kls: invalid option -- '" ++ flag ++ "'")
         eprintln(short-usage)
         exit(2)
-    val opts = matches-to-options(m)
-    val paths = m.get-positionals()
-    // Keep original argument strings alongside path objects so that
-    // display preserves what the user (or shell glob) provided,
-    // e.g. the trailing '/' from */.
-    val targets : list<(string, path)> = match paths
-      Nil -> [(".", ".".path)]
-      _   -> paths.map(fn(p) (p, p.path))
-    // Report inaccessible paths to stderr, like GNU ls
-    val existing = targets.filter fn(t)
-      val err = stat-error((t.snd).string)
-      if err.is-empty then True
-      else
-        eprintln("kls: cannot access '" ++ t.fst ++ "': " ++ err)
-        exit-code := set-exit-status(exit-code, serious = False)
-        False
-    val (dirs, files) = if opts.dir-only then ([], existing)
-                        else existing.partition(fn(t) is-directory(t.snd))
-    // Sort and print files first (no header), like GNU ls
-    val tty = stdout-is-tty()
-    val file-entries = files.map fn(t)
-      val name = format-name(t.fst, (t.snd).classify, opts, tty)
-      val ino = if opts.print-inode then get-inode((t.snd).string) else 0
-      (name, ino, (t.snd).string)
-    val sorted-file-entries = match opts.sort-by
-      SortNone -> file-entries
-      SortName ->
-        if opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
-        else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
-      SortSize ->
-        val decorated = file-entries.map(fn(e) (e, get-size(e.thd)))
-        val s = if opts.reverse then decorated.sortby fn(a, b)
-                  match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
-                else decorated.sortby fn(a, b)
-                  match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
-        s.map(fn(e) e.fst)
-      SortTime ->
-        val decorated = file-entries.map(fn(e) (e, get-timestamp(e.thd, opts.time-type)))
-        val s = if opts.reverse then decorated.sortby fn(a, b)
-                  match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
-                else decorated.sortby fn(a, b)
-                  match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
-        s.map(fn(e) e.fst)
-      SortExtension ->
-        if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
-        else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
-      SortVersion ->
-        if opts.reverse then file-entries.sortby(fn(a, b) cmp-version(b.fst, a.fst))
-        else file-entries.sortby(fn(a, b) cmp-version(a.fst, b.fst))
-      SortWidth ->
-        val decorated = file-entries.map(fn(e) (e, e.fst.count))
-        val s = if opts.reverse then decorated.sortby fn(a, b)
-                  match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
-                else decorated.sortby fn(a, b)
-                  match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
-        s.map(fn(e) e.fst)
-    val has-files = sorted-file-entries.length > 0
-    if opts.long-format then
-      if has-files then
-        format-long-listing(sorted-file-entries, opts, False)
-    else
-      val sorted-file-names = format-entries(sorted-file-entries.map(fn(e) (e.fst, e.snd)), opts)
-      val use-columns = if opts.one-entry then False
-                        elif opts.force-columns then True
-                        else tty
-      if use-columns then
-        val width = terminal-width()
-        val lines = render-column-major(sorted-file-names, width)
-        lines.foreach(fn(line) echoln(line))
-      else
-        sorted-file-names.foreach(fn(name) echoln(name))
-    // Sort directories, then list each
-    val sorted-dirs = match opts.sort-by
-      SortNone -> dirs
-      SortSize ->
-        val with-size = dirs.map(fn(t) (t, get-size((t.snd).string)))
-        val s = if opts.reverse then with-size.sortby(fn(a, b) cmp(a.snd, b.snd))
-                else with-size.sortby(fn(a, b) cmp(b.snd, a.snd))
-        s.map(fn(e) e.fst)
-      SortTime ->
-        val with-time = dirs.map(fn(t) (t, get-timestamp((t.snd).string, opts.time-type)))
-        val s = if opts.reverse then with-time.sortby(fn(a, b) cmp(a.snd, b.snd))
-                else with-time.sortby(fn(a, b) cmp(b.snd, a.snd))
-        s.map(fn(e) e.fst)
-      SortExtension ->
-        if opts.reverse then dirs.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
-        else dirs.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
-      SortVersion ->
-        if opts.reverse then dirs.sortby(fn(a, b) cmp-version(b.fst, a.fst))
-        else dirs.sortby(fn(a, b) cmp-version(a.fst, b.fst))
-      SortWidth ->
-        val decorated = dirs.map(fn(t) (t, t.fst.count))
-        val s = if opts.reverse then decorated.sortby fn(a, b)
-                  match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
-                else decorated.sortby fn(a, b)
-                  match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
-        s.map(fn(e) e.fst)
-      _ ->
-        if opts.reverse then dirs.reverse
-        else dirs
-    val show-header = sorted-dirs.length > 1 || has-files
-    sorted-dirs.foreach-indexed fn(i, dir-entry)
-      if i > 0 || has-files then echoln("")
-      val dir-code = list-dir(dir-entry.snd, opts, show-header)
-      if dir-code > exit-code then exit-code := dir-code
+      Parsed(opts, paths) ->
+        // Keep original argument strings alongside path objects so that
+        // display preserves what the user (or shell glob) provided,
+        // e.g. the trailing '/' from */.
+        val targets : list<(string, path)> = match paths
+          Nil -> [(".", ".".path)]
+          _   -> paths.map(fn(p) (p, p.path))
+        // Report inaccessible paths to stderr, like GNU ls
+        val existing = targets.filter fn(t)
+          val err = stat-error((t.snd).string)
+          if err.is-empty then True
+          else
+            eprintln("kls: cannot access '" ++ t.fst ++ "': " ++ err)
+            exit-code := set-exit-status(exit-code, serious = False)  // not serious → exit 1
+            False
+        val (dirs, files) = if opts.dir-only then ([], existing)
+                            else existing.partition(fn(t) is-directory(t.snd))
+        // Sort and print files first (no header), like GNU ls
+        val tty = stdout-is-tty()
+        val file-entries = files.map fn(t)
+          val name = format-name(t.fst, (t.snd).classify, opts, tty)
+          val ino = if opts.print-inode then get-inode((t.snd).string) else 0
+          (name, ino, (t.snd).string)
+        val sorted-file-entries = match opts.sort-by
+          SortNone -> file-entries
+          SortName ->
+            if opts.reverse then file-entries.sortBy(fn(a, b) cmp(b.fst, a.fst))
+            else file-entries.sortBy(fn(a, b) cmp(a.fst, b.fst))
+          SortSize ->
+            val decorated = file-entries.map(fn(e) (e, get-size(e.thd)))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
+          SortTime ->
+            val decorated = file-entries.map(fn(e) (e, get-timestamp(e.thd, opts.time-type)))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
+          SortExtension ->
+            if opts.reverse then file-entries.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+            else file-entries.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+          SortVersion ->
+            if opts.reverse then file-entries.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+            else file-entries.sortby(fn(a, b) cmp-version(a.fst, b.fst))
+          SortWidth ->
+            val decorated = file-entries.map(fn(e) (e, e.fst.count))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
+        val has-files = sorted-file-entries.length > 0
+        if opts.long-format then
+          if has-files then
+            format-long-listing(sorted-file-entries, opts, False)
+        else
+          val sorted-file-names = format-entries(sorted-file-entries.map(fn(e) (e.fst, e.snd)), opts)
+          val use-columns = if opts.one-entry then False
+                            elif opts.force-columns then True
+                            else tty
+          if use-columns then
+            val width = terminal-width()
+            val lines = render-column-major(sorted-file-names, width)
+            lines.foreach(fn(line) echoln(line))
+          else
+            sorted-file-names.foreach(fn(name) echoln(name))
+        // Sort directories, then list each
+        val sorted-dirs = match opts.sort-by
+          SortNone -> dirs
+          SortSize ->
+            val with-size = dirs.map(fn(t) (t, get-size((t.snd).string)))
+            val s = if opts.reverse then with-size.sortby(fn(a, b) cmp(a.snd, b.snd))
+                    else with-size.sortby(fn(a, b) cmp(b.snd, a.snd))
+            s.map(fn(e) e.fst)
+          SortTime ->
+            val with-time = dirs.map(fn(t) (t, get-timestamp((t.snd).string, opts.time-type)))
+            val s = if opts.reverse then with-time.sortby(fn(a, b) cmp(a.snd, b.snd))
+                    else with-time.sortby(fn(a, b) cmp(b.snd, a.snd))
+            s.map(fn(e) e.fst)
+          SortExtension ->
+            if opts.reverse then dirs.sortby(fn(a, b) cmp-extension(b.fst, a.fst))
+            else dirs.sortby(fn(a, b) cmp-extension(a.fst, b.fst))
+          SortVersion ->
+            if opts.reverse then dirs.sortby(fn(a, b) cmp-version(b.fst, a.fst))
+            else dirs.sortby(fn(a, b) cmp-version(a.fst, b.fst))
+          SortWidth ->
+            val decorated = dirs.map(fn(t) (t, t.fst.count))
+            val s = if opts.reverse then decorated.sortby fn(a, b)
+                      match cmp(b.snd, a.snd) { Eq -> cmp(b.fst.fst, a.fst.fst); c -> c }
+                    else decorated.sortby fn(a, b)
+                      match cmp(a.snd, b.snd) { Eq -> cmp(a.fst.fst, b.fst.fst); c -> c }
+            s.map(fn(e) e.fst)
+          _ ->
+            if opts.reverse then dirs.reverse
+            else dirs  // already in argument order, which is fine
+        val show-header = sorted-dirs.length > 1 || has-files
+        sorted-dirs.foreach-indexed fn(i, dir-entry)
+          if i > 0 || has-files then echoln("")
+          val dir-code = list-dir(dir-entry.snd, opts, show-header)
+          if dir-code > exit-code then exit-code := dir-code
     if exit-code > 0 then exit(exit-code)
   process-exit(code)
