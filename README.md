@@ -111,7 +111,7 @@ The testing framework is [kunit](https://github.com/cladam/kunit), managed as a 
 - [x] `-o` — long format, omit group (equivalent to `-l -G`)
 - [x] `-G, --no-group` — suppress group in long listing
 - [x] `-n, --numeric-uid-gid` — long format with numeric user and group IDs
-- [ ] `--author` — with `-l`, print author of each file
+- [x] `--author` — with `-l`, print author of each file
 - [x] `-i, --inode` — print inode number of each file
 - [ ] `-s, --size` — print allocated size of each file in blocks
 - [ ] `-h, --human-readable` — print sizes like 1K 234M 2G (powers of 1024)
